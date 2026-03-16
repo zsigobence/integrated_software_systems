@@ -1,0 +1,31 @@
+.background {
+  object-fit: cover;
+  background-position: center;
+}
+
+.menu-buttons {
+  position: absolute;
+  bottom: 3vh;
+  right: 10vw;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu-buttons button {
+  color: #FAFAFA;
+  background-color: transparent;
+  width: 350px;
+  padding: 12px 0;
+  padding-right: 30px;
+  border: none;
+  border-radius: 6px;
+  font-size: 24px;
+  transition: 0.2s ease;
+  text-align: right;
+}
+
+.menu-buttons button.active,
+.menu-buttons button:hover {
+  background-color: #D1D1D630;
+}

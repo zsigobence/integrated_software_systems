@@ -1,0 +1,35 @@
+<div class="container">
+  <img ngSrc="/assets/background.jpg" alt="background" class="background" fill priority />
+
+  <div class="menu-buttons">
+    <button 
+      (click)="singleplayer()" 
+      [class.active]="activeButton === 'single'">
+      Singleplayer (lokális nézet)
+    </button>
+
+    <button 
+      (click)="multiplayer()" 
+      [class.active]="activeButton === 'multi'">
+      Új multiplayer szoba
+    </button>
+
+    <button 
+      (click)="joinGame()" 
+      [class.active]="activeButton === 'join'">
+      Csatlakozás szobához
+    </button>
+
+    <button 
+      (click)="leaderboard()" 
+      [class.active]="activeButton === 'leader'">
+      Leaderboard
+    </button>
+
+    <button 
+      (click)="quit()" 
+      [class.active]="activeButton === 'quit'">
+      Quit
+    </button>
+  </div>
+</div>
