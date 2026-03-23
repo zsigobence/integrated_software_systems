@@ -18,8 +18,8 @@ export class Field implements OnInit, OnDestroy {
   playerId: number | null = null;
   winner: models.TeamType | null = null;
   public TeamType = models.TeamType;
-  public leftGoalColor = '#0000FF';
-  public rightGoalColor = '#FF0000';
+  public leftGoalColor = '#4444ff';
+  public rightGoalColor = '#ff4444';
 
   private roomSubscription: Subscription | undefined;
   private configSubscription: Subscription | undefined;
@@ -36,6 +36,9 @@ export class Field implements OnInit, OnDestroy {
   ngOnInit() {
     this.roomSubscription = this.gameService.roomState$.subscribe((room) => {
       this.room = room;
+      if (room && !room.isStarted && !this.winner) {
+          this.router.navigate(['/lobby']);
+      }
       this.cdr.detectChanges();
     });
 
@@ -60,31 +63,18 @@ export class Field implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.roomSubscription) {
-      this.roomSubscription.unsubscribe();
-    }
-    if (this.configSubscription) {
-      this.configSubscription.unsubscribe();
-    }
-    if (this.idSubscription) {
-      this.idSubscription.unsubscribe();
-    }
-    if (this.gameOverSubscription) {
-      this.gameOverSubscription.unsubscribe();
-    }
-    if (this.movementIntervalId !== null) {
-      clearInterval(this.movementIntervalId);
-    }
+    if (this.roomSubscription) this.roomSubscription.unsubscribe();
+    if (this.configSubscription) this.configSubscription.unsubscribe();
+    if (this.idSubscription) this.idSubscription.unsubscribe();
+    if (this.gameOverSubscription) this.gameOverSubscription.unsubscribe();
+    if (this.movementIntervalId !== null) clearInterval(this.movementIntervalId);
   }
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent) {
     const key = event.key.toLowerCase();
     if (['w', 'a', 's', 'd'].indexOf(key) === -1) return;
-
-    if (this.keysPressed[key]) {
-      return; // Key already down
-    }
+    if (this.keysPressed[key]) return;
     this.keysPressed[key] = true;
     this.updateAccelerationAndInterval();
   }
@@ -93,31 +83,20 @@ export class Field implements OnInit, OnDestroy {
   onKeyUp(event: KeyboardEvent) {
     const key = event.key.toLowerCase();
     if (['w', 'a', 's', 'd'].indexOf(key) === -1) return;
-    
     this.keysPressed[key] = false;
     this.updateAccelerationAndInterval();
   }
 
   private updateAccelerationAndInterval() {
-    let ax = 0;
-    let ay = 0;
+    let ax = 0; let ay = 0;
+    const up = this.keysPressed['w']; const down = this.keysPressed['s'];
+    const left = this.keysPressed['a']; const right = this.keysPressed['d'];
 
-    const up = this.keysPressed['w'];
-    const down = this.keysPressed['s'];
-    const left = this.keysPressed['a'];
-    const right = this.keysPressed['d'];
+    if (up && !down) ay = -this.ACCELERATION_STEP;
+    else if (down && !up) ay = this.ACCELERATION_STEP;
 
-    if (up && !down) {
-      ay = -this.ACCELERATION_STEP;
-    } else if (down && !up) {
-      ay = this.ACCELERATION_STEP;
-    }
-
-    if (left && !right) {
-      ax = -this.ACCELERATION_STEP;
-    } else if (right && !left) {
-      ax = this.ACCELERATION_STEP;
-    }
+    if (left && !right) ax = -this.ACCELERATION_STEP;
+    else if (right && !left) ax = this.ACCELERATION_STEP;
 
     this.acceleration.x = ax;
     this.acceleration.y = ay;
@@ -134,7 +113,7 @@ export class Field implements OnInit, OnDestroy {
             });
           }
         }
-      }, 33); // ~30 FPS
+      }, 33);
     } else if (!isMoving && this.movementIntervalId !== null) {
       clearInterval(this.movementIntervalId);
       this.movementIntervalId = null;
@@ -150,19 +129,19 @@ export class Field implements OnInit, OnDestroy {
   }
 
   restart(): void {
+    this.winner = null;
     this.gameService.restartGame();
-    this.router.navigate(['/lobby']);
+  }
+
+  stopGame(): void {
+    this.gameService.leaveRoom();
+    this.router.navigate(['/']);
   }
 
   getAllCharacters(): (models.Character & { team: models.TeamType | null })[] {
-    if (!this.room) {
-      return [];
-    }
+    if (!this.room) return [];
     return this.room.players.flatMap(player =>
-      player.characters.map(character => ({
-        ...character,
-        team: player.team
-      }))
+      player.characters.map(character => ({ ...character, team: player.team }))
     ).filter(c => c.team === models.TeamType.Red || c.team === models.TeamType.Blue);
   }
 

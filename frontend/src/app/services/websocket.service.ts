@@ -1,7 +1,7 @@
-
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Observable } from 'rxjs';
+import * as models from '../models/robosoccer.models';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -9,46 +9,27 @@ import { environment } from '../../environments/environment';
 })
 export class WebsocketService {
   private socket: Socket;
+  public lastAiVersion: models.AiVersion | null = null;
 
-  constructor(private zone: NgZone) {
-    this.socket = io(environment.serverUrl, {
-      withCredentials: true,
-      transports: ['polling', 'websocket']
-      });
-
-    this.socket.on('connect', () => {
-      console.log('Connected to WebSocket server at:', environment.serverUrl);
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
-    });
+  constructor() {
+    this.socket = io(environment.serverUrl);
   }
 
-  public connect(): void {
-    this.socket.connect();
-  }
-
-  public disconnect(): void {
-    this.socket.disconnect();
-  }
-
-  public send(eventName: string, data: any): void {
-    if (!this.socket.connected) {
-      console.warn(`Attempting to send ${eventName} while disconnected. Buffering...`);
-      this.socket.connect();
-    }
-    console.log(`Sending event: ${eventName}`, data);
-    this.socket.emit(eventName, data);
-  }
-
-  public listen(eventName: string): Observable<any> {
-    return new Observable((observer) => {
+  listen<T>(eventName: models.ServerMessageType): Observable<T> {
+    return new Observable((subscriber) => {
       this.socket.on(eventName, (data) => {
-        this.zone.run(() => {
-          observer.next(data);
-        });
+        subscriber.next(data);
       });
     });
+  }
+
+  send(eventName: models.ClientMessageType, data: any): void {
+    // Eltároljuk az AI verziót a StartGame és RestartGame üzenetekből
+    if (eventName === models.ClientMessageType.StartGame || eventName === models.ClientMessageType.RestartGame) {
+      if (data && data.aiVersion) {
+        this.lastAiVersion = data.aiVersion;
+      }
+    }
+    this.socket.emit(eventName, data);
   }
 }

@@ -1,31 +1,72 @@
-<div class="lobby-container" *ngIf="room">
-  <h1>Room ID: {{ room.roomId }}</h1>
+<div class="lobby-wrapper" *ngIf="room">
+  <div class="lobby-header">
+    <h1>Room #{{ room.roomId }}</h1>
+    <button class="btn-leave" (click)="leaveRoom()">Leave Match</button>
+  </div>
 
-  <div class="teams">
-    <div class="team">
-      <h2>Team Red</h2>
-      <ul>
-        <li *ngFor="let player of getTeam(TeamType.Red)">{{ player.name }}{{ player.isBot ? ' (AI)' : '' }}</li>
-      </ul>
-      <button (click)="joinTeam(TeamType.Red)">Join Team Red</button>
+  <div class="teams-grid">
+    <div class="team-card red">
+      <div class="team-title">RED TEAM</div>
+      <div class="player-list">
+        <div class="player-item" *ngFor="let player of getTeam(TeamType.Red)">
+          <div class="player-info">
+            <span class="name">{{ player.name }}</span>
+            <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
+            
+            <select 
+              *ngIf="aiBotManager.isLocalBot(player.id)" 
+              class="bot-ai-select" 
+              (change)="onBotAiChange(player.id, $event)" 
+              [value]="getBotAiVersion(player.id)">
+              <option [value]="AiVersion.Default">Normal AI</option>
+              <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
+              <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
+            </select>
+          </div>
+          <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>
+        </div>
+      </div>
+      <button class="btn-join" (click)="joinTeam(TeamType.Red)">Join Red</button>
+      <button class="btn-add-bot" (click)="addBot(TeamType.Red)">+ Add AI Bot</button>
     </div>
 
-    <div class="team">
-      <h2>Team Blue</h2>
-      <ul>
-        <li *ngFor="let player of getTeam(TeamType.Blue)">{{ player.name }}{{ player.isBot ? ' (AI)' : '' }}</li>
-      </ul>
-      <button (click)="joinTeam(TeamType.Blue)">Join Team Blue</button>
+    <div class="team-card blue">
+      <div class="team-title">BLUE TEAM</div>
+      <div class="player-list">
+        <div class="player-item" *ngFor="let player of getTeam(TeamType.Blue)">
+          <div class="player-info">
+            <span class="name">{{ player.name }}</span>
+            <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
+            
+            <select 
+              *ngIf="aiBotManager.isLocalBot(player.id)" 
+              class="bot-ai-select" 
+              (change)="onBotAiChange(player.id, $event)" 
+              [value]="getBotAiVersion(player.id)">
+              <option [value]="AiVersion.Default">Normal AI</option>
+              <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
+              <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
+            </select>
+          </div>
+          <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>
+        </div>
+      </div>
+      <button class="btn-join" (click)="joinTeam(TeamType.Blue)">Join Blue</button>
+      <button class="btn-add-bot" (click)="addBot(TeamType.Blue)">+ Add AI Bot</button>
     </div>
 
-    <div class="team">
-      <h2>Spectators</h2>
-      <ul>
-        <li *ngFor="let player of getSpectators()">{{ player.name }}{{ player.isBot ? ' (AI)' : '' }}</li>
-      </ul>
-      <button (click)="joinTeam(TeamType.Spectator)">Join Spectators</button>
+    <div class="team-card spectators">
+      <div class="team-title">SPECTATORS</div>
+      <div class="player-list">
+        <div class="player-item" *ngFor="let player of getSpectators()">
+          <span class="name">{{ player.name }}</span>
+        </div>
+      </div>
+      <button class="btn-join" (click)="joinTeam(TeamType.Spectator)">Watch</button>
     </div>
   </div>
 
-  <button (click)="startGame()">Start Game</button>
+  <div class="lobby-footer">
+    <button class="btn-start" (click)="startGame()">START MATCH</button>
+  </div>
 </div>

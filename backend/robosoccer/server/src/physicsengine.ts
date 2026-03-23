@@ -41,8 +41,6 @@ export class PhysicsEngine {
             return collisions;
         }
 
-        this.applyBotMovement(room);
-
         //Update positions based on velocities
         room.players.forEach(p => {
             if (p.team !== TeamType.Spectator) {
@@ -94,63 +92,6 @@ export class PhysicsEngine {
 
     return collisions;
 }
-
-    private applyBotMovement(room: Room): void {
-        if (!GameConfig.ENABLE_BOTS) {
-            return;
-        }
-
-        const botPlayers = room.players.filter(player => player.isBot && player.team !== TeamType.Spectator);
-        const centerX = GameConfig.FIELD_WIDTH / 2;
-        const centerY = GameConfig.FIELD_HEIGHT / 2;
-        const wallMargin = GameConfig.PLAYER_RADIUS + GameConfig.BALL_RADIUS + 30;
-        const nearLeftWall = room.ball.x <= wallMargin;
-        const nearRightWall = room.ball.x >= GameConfig.FIELD_WIDTH - wallMargin;
-        const nearTopWall = room.ball.y <= wallMargin;
-        const nearBottomWall = room.ball.y >= GameConfig.FIELD_HEIGHT - wallMargin;
-        const cornerTrap = (nearLeftWall || nearRightWall) && (nearTopWall || nearBottomWall);
-
-        botPlayers.forEach(player => {
-            player.characters.forEach(character => {
-                let targetX = room.ball.x;
-                let targetY = room.ball.y;
-
-                // Anti-trap steering: when the ball is near walls/corners, bots try to move it
-                // back toward the center line instead of pinning it into the wall.
-                if (cornerTrap) {
-                    targetX = room.ball.x + (centerX - room.ball.x) * 0.45;
-                    targetY = room.ball.y + (centerY - room.ball.y) * 0.45;
-                } else {
-                    if (nearLeftWall || nearRightWall) {
-                        targetY = room.ball.y + Math.sign(centerY - room.ball.y) * 80;
-                    }
-                    if (nearTopWall || nearBottomWall) {
-                        targetX = room.ball.x + Math.sign(centerX - room.ball.x) * 80;
-                    }
-                }
-
-                targetX = Math.max(GameConfig.PLAYER_RADIUS, Math.min(GameConfig.FIELD_WIDTH - GameConfig.PLAYER_RADIUS, targetX));
-                targetY = Math.max(GameConfig.PLAYER_RADIUS, Math.min(GameConfig.FIELD_HEIGHT - GameConfig.PLAYER_RADIUS, targetY));
-
-                const dx = targetX - character.x;
-                const dy = targetY - character.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                if (distance <= GameConfig.BOT_MIN_BALL_DISTANCE) {
-                    return;
-                }
-
-                const normalizedX = dx / distance;
-                const normalizedY = dy / distance;
-
-                const accelerationX = normalizedX * GameConfig.BOT_ACCELERATION;
-                const accelerationY = normalizedY * GameConfig.BOT_ACCELERATION;
-
-                character.x_velocity += Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, accelerationX));
-                character.y_velocity += Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, accelerationY));
-            });
-        });
-    }
 
 private handleWallCollision(entity: any, radius: number, isBall: boolean = false, room?: Room): boolean {
         let goalScored = false;

@@ -15,8 +15,4 @@ export const GameConfig = {
     COUNTDOWN_SEC: 3, // Countdown in ticks (e.g., 5 seconds at 60 FPS = 300 ticks)
     MINIMUM_PLAYERS_TO_START: 1, // Minimum players required to start the game
     CHARACTERS_PER_PLAYER: 5, // Number of characters per player
-    ENABLE_BOTS: true,
-    BOTS_PER_ROOM: 1,
-    BOT_ACCELERATION: 4,
-    BOT_MIN_BALL_DISTANCE: 10,
 };

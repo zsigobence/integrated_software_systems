@@ -9,13 +9,13 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.5",
     "@types/socket.io": "^3.0.2",
-    "ts-node": "^10.9.2",
     "typescript": "~5.4.2"
   }
 }

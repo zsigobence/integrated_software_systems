@@ -3,6 +3,7 @@ import { Player } from "../../model/player"
 import { Character } from "../../model/character"
 import { TeamType } from "../../model/message-interfaces";
 import { GameConfig } from "./constants";
+import { get } from "http";
 
 export class RobosoccerDatabase {
   // This class will handle the database connection and queries
@@ -26,13 +27,12 @@ export class RobosoccerDatabase {
     return newCharacter; // Return the new character object
   }
 
-  public createPlayer(username: string, id: number, socketId: string, isBot: boolean = false): Player {
+  public createPlayer(username: string, id: number, socketId: string): Player {
     // Create a new player object
     const newPlayer: Player = {
       id: id,      // Player ID from room ids
       socketId: socketId, // Socket ID from socket connection
       name: username,   // Player's name
-      isBot: isBot,
       team: TeamType.Blue, // Team will be default Blue
       characters: [], // Initialize characters array
     };
@@ -43,40 +43,6 @@ export class RobosoccerDatabase {
     }
 
     return newPlayer; // Return the new player object
-  }
-
-  private createBotPlayer(room: Room, team: TeamType): Player {
-    const botId = this.generateUniquePlayerId(room);
-    const bot = this.createPlayer(`AI ${team.toUpperCase()}`, botId, `bot:${room.roomId}:${botId}`, true);
-    bot.team = team;
-    return bot;
-  }
-
-  private ensureBots(room: Room): void {
-    if (!GameConfig.ENABLE_BOTS) {
-      return;
-    }
-
-    const existingBots = room.players.filter(player => player.isBot).length;
-    const botsNeeded = Math.max(0, GameConfig.BOTS_PER_ROOM - existingBots);
-
-    for (let i = 0; i < botsNeeded; i++) {
-      const blueCount = this.getTeamNumberInRoom(room, TeamType.Blue);
-      const redCount = this.getTeamNumberInRoom(room, TeamType.Red);
-      const botTeam = redCount <= blueCount ? TeamType.Red : TeamType.Blue;
-      room.players.push(this.createBotPlayer(room, botTeam));
-    }
-  }
-
-  private rebalanceBotTeams(room: Room): void {
-    const blueHumanCount = room.players.filter(player => !player.isBot && player.team === TeamType.Blue).length;
-    const redHumanCount = room.players.filter(player => !player.isBot && player.team === TeamType.Red).length;
-
-    room.players
-      .filter(player => player.isBot)
-      .forEach(bot => {
-        bot.team = redHumanCount <= blueHumanCount ? TeamType.Red : TeamType.Blue;
-      });
   }
 
   // Method to create a new room
@@ -98,7 +64,6 @@ export class RobosoccerDatabase {
     };
 
     this.roomdb.push(newRoom); // Assign the new room to the database
-    this.ensureBots(newRoom);
     console.log("Rooms open: " + this.roomdb.length);
 
     return newRoom; // Return the new room
@@ -114,8 +79,6 @@ export class RobosoccerDatabase {
     } 
 
     room.players.push(player); // Add the player to the room
-    this.ensureBots(room);
-    this.rebalanceBotTeams(room);
     return room; // Return the updated room
   }
 
@@ -126,11 +89,7 @@ export class RobosoccerDatabase {
       // Find the player by socket ID in the room
       const player = room.players.find(player => player.socketId === socketId);
       if (player) {
-        if (player.isBot) {
-          return room;
-        }
         player.team = team; // Set the player's team to the selected team
-        this.rebalanceBotTeams(room);
         return room; // Return the room
       }
     }
@@ -158,11 +117,8 @@ export class RobosoccerDatabase {
 
       // Remove the player from the room
       room.players = room.players.filter(player => player.socketId !== socketId);
-      this.rebalanceBotTeams(room);
 
-      const hasHumanPlayers = room.players.some(player => !player.isBot);
-
-      if (!hasHumanPlayers) {
+      if (room.players.length === 0) {
         // If no players left, remove the room from the database
         this.roomdb = this.roomdb.filter(r => r.roomId !== room.roomId);
         console.log("Rooms open: " + this.roomdb.length);

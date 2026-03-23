@@ -1,4 +1,3 @@
-
 export interface Room {
   roomId: number;
   ball: Ball;
@@ -59,6 +58,11 @@ export interface MovementMessage {
   y: number | null;
 }
 
+export interface CollisionMessage {
+  playerId: number;
+  characterId: number;
+}
+
 export interface ErrorMessage {
   errorType: ErrorType;
   message: string;
@@ -75,6 +79,12 @@ export interface GameConfigMessage {
   countdown: number;
 }
 
+export enum AiVersion {
+  Default = 'default',
+  Brain5v5 = 'brain5v5',
+  PerfectStrategy = 'perfect'
+}
+
 export enum ServerMessageType {
   TestMessage = 'serverTest',
   ConnectAck = 'connectAck',
@@ -83,7 +93,8 @@ export enum ServerMessageType {
   GameOver = 'gameOver',
   Error = 'error',
   ReconnectAck = 'reconnectAck',
-  ReceiveConfig = 'receive-config'
+  ReceiveConfig = 'receive-config',
+  Collision = 'collision'
 }
 
 export enum ClientMessageType {

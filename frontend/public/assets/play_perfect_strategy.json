@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "strategy_name": "Perfect Strategy v2.0",
+    "description": "Bulldózer, ami saját térfélen Aktív Élő Pajzzsá alakul (Sarok-beragadás védelemmel)",
+    "type": "hybrid_state_machine"
+  },
+  "physics_parameters": {
+    "Kp": 0.3,
+    "Kd": 0.4,
+    "max_acceleration": 10
+  },
+  "team_roles": {
+    "defenders": [
+      {
+        "role_id": "gk_1",
+        "name": "Goalie Top",
+        "target": { "type": "static", "x": 50, "y": 445 }
+      },
+      {
+        "role_id": "gk_2",
+        "name": "Goalie Bottom",
+        "target": { "type": "static", "x": 50, "y": 555 }
+      }
+    ],
+    "attackers": {
+      "assignment_logic": "sort_by_distance_to_ball",
+      "roles": ["Carrier", "Winger 1", "Winger 2"],
+      "phases": {
+        "phase_1_corner_blockade": {
+          "condition": "Ball is in one of the 4 corners (Death Zones)",
+          "behavior": "Lézárják a sarokból kivezető utat, megakadályozva a beragadást."
+        },
+        "phase_2_active_defense": {
+          "condition": "Ball is closer than 600 units to own goal (but not in corner)",
+          "behavior": "A Carrier oldalra tolja a labdát, a két Winger pedig egy 200 egység sugarú, dinamikus élő pajzsot von a kapu elé."
+        },
+        "phase_3_bulldozer": {
+          "condition": "Ball is in the opponent's half or middle field",
+          "behavior": "Ék alakzat. A Carrier hátulról tolja a labdát a kapu felé, a Wingerek biztosítják a széleket. Falsúrolás korrekcióval."
+        }
+      }
+    }
+  }
+}

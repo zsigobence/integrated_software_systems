@@ -1,6 +1,5 @@
-
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { WebsocketService } from './websocket.service';
 import * as models from '../models/robosoccer.models';
 
@@ -26,11 +25,12 @@ export class GameService {
   private gameOverStateSubject= new BehaviorSubject<models.TeamType | null>(null);
   public gameOverState$ = this.gameOverStateSubject.asObservable();
 
-  constructor(private websocketService: WebsocketService) {
-    this.websocketService.listen(models.ServerMessageType.ReceiveRoom).subscribe((room) => {
-      const ids = this.idStateSubject.value;
+  // ÚJ: Ütközések állapota
+  private collisionStateSubject = new Subject<models.CollisionMessage>();
+  public collisionState$ = this.collisionStateSubject.asObservable();
 
-      // Guard: Ignore room updates if we are waiting for the server to acknowledge a restart (ignore 'started' rooms)
+  constructor(private websocketService: WebsocketService) {
+    this.websocketService.listen<models.Room>(models.ServerMessageType.ReceiveRoom).subscribe((room) => {
       if (this.isRestarting && room?.isStarted) {
         return;
       }
@@ -42,41 +42,36 @@ export class GameService {
       if (this.isleavingRoom){
         this.roomStateSubject.next(null);
         this.isleavingRoom = false;
-    
       } else{
         this.roomStateSubject.next(room);
-        console.log('Received room:', room);
       }
-
     });
 
-    this.websocketService.listen(models.ServerMessageType.ReceiveConfig).subscribe((config) => {
-      console.log('Received config:', config);
+    this.websocketService.listen<models.GameConfigMessage>(models.ServerMessageType.ReceiveConfig).subscribe((config) => {
       this.configStateSubject.next(config);
     });
 
-    this.websocketService.listen(models.ServerMessageType.Error).subscribe((error) => {
-      console.log('Received error:', error);
+    this.websocketService.listen<models.ErrorMessage>(models.ServerMessageType.Error).subscribe((error) => {
       this.errorStateSubject.next(error);
     });
 
-    this.websocketService.listen(models.ServerMessageType.GameOver).subscribe((winner) => {
-      console.log('Received game over:', winner);
+    this.websocketService.listen<models.TeamType | null>(models.ServerMessageType.GameOver).subscribe((winner) => {
       this.gameOverStateSubject.next(winner);
     });
 
-    this.websocketService.listen(models.ServerMessageType.ReceiveId).subscribe((ids) => {
-      console.log('Received ID:', ids);
+    this.websocketService.listen<models.IdMessage>(models.ServerMessageType.ReceiveId).subscribe((ids) => {
       this.idStateSubject.next(ids);
     });
-  }
 
-  // Client to Server Message Handlers
+    // ÚJ: Ütközések lehallgatása
+    this.websocketService.listen<models.CollisionMessage>(models.ServerMessageType.Collision).subscribe((collision) => {
+      this.collisionStateSubject.next(collision);
+    });
+  }
 
   public createRoom(username: string): void {
     this.isleavingRoom = false;
     this.isRestarting = false;
-    console.log('Creating room with username:', username);
     this.websocketService.send(models.ClientMessageType.CreateRoom, username);
   }
 
@@ -103,7 +98,6 @@ export class GameService {
   public pickTeam(playerId: number, team: models.TeamType): void {
     const payload: models.TeamPickerMessage = { playerId, team };
     this.websocketService.send(models.ClientMessageType.PickTeam, payload);
-    console.log('Picking team with payload:', payload);
   }
 
   public startGame(): void {

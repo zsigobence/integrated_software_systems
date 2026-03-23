@@ -1,68 +1,87 @@
-<div id="container">
-  <!-- GAME VIEW -->
-  <div *ngIf="room && room.isStarted && config">
-    <div class="scoreboard">
-      <p>Red: {{ room.score.red }} - Blue: {{ room.score.blue }}</p>
+<div id="game-container" *ngIf="room && config">
+  
+  <div class="top-bar">
+    <div class="score-card red-side">
+      <span class="team-name">RED</span>
+      <span class="points">{{ room.score.red }}</span>
+    </div>
+    
+    <div class="game-info">
+      <div class="timer" *ngIf="room.countdownTicks > 0">
+        {{ (room.countdownTicks / 60) | number:'1.0-0' }}
+      </div>
+      <div class="vs-label" *ngIf="room.countdownTicks <= 0">VS</div>
     </div>
 
+    <div class="score-card blue-side">
+      <span class="points">{{ room.score.blue }}</span>
+      <span class="team-name">BLUE</span>
+    </div>
+  </div>
+
+  <div class="field-wrapper">
     <svg
       [attr.width]="config.fieldWidth"
       [attr.height]="config.fieldHeight"
-      id="fieldGreen"
-      style="border: 3px solid black; background-color: green"
+      id="soccer-field"
     >
-      <!-- Blue Goal (Left) -->
-      <rect
-        x="0"
-        [attr.y]="config.goalMinY"
-        width="10"
-        [attr.height]="config.goalMaxY - config.goalMinY"
-        [attr.fill]="leftGoalColor"
-      ></rect>
+      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="#2d5a27"></rect>
+      
+      <line [attr.x1]="config.fieldWidth/2" y1="0" [attr.x2]="config.fieldWidth/2" [attr.height]="config.fieldHeight" stroke="white" stroke-width="2" opacity="0.5"></line>
+      <circle [attr.cx]="config.fieldWidth/2" [attr.cy]="config.fieldHeight/2" r="80" fill="none" stroke="white" stroke-width="2" opacity="0.5"></circle>
 
-      <!-- Red Goal (Right) -->
-      <rect
-        [attr.x]="config.fieldWidth - 10"
-        [attr.y]="config.goalMinY"
-        width="10"
-        [attr.height]="config.goalMaxY - config.goalMinY"
-        [attr.fill]="rightGoalColor"
-      ></rect>
+      <rect x="0" [attr.y]="config.goalMinY" width="15" [attr.height]="config.goalMaxY - config.goalMinY" [attr.fill]="leftGoalColor"></rect>
 
-      <g *ngIf="room">
+      <rect [attr.x]="config.fieldWidth - 15" [attr.y]="config.goalMinY" width="15" [attr.height]="config.goalMaxY - config.goalMinY" [attr.fill]="rightGoalColor"></rect>
+
+      <g>
         <circle
           *ngFor="let p of getAllCharacters()"
           [attr.cx]="p.x"
           [attr.cy]="p.y"
           [attr.r]="config.playerRadius"
-          [attr.fill]="p.team"
+          [attr.fill]="p.team === 'red' ? '#ff4444' : '#4444ff'"
+          stroke="white"
+          stroke-width="2"
         ></circle>
+        
         <circle
           [attr.cx]="room.ball.x"
           [attr.cy]="room.ball.y"
           [attr.r]="config.ballRadius"
-          fill="orange"
+          fill="#fff"
+          stroke="#000"
+          stroke-width="1"
+          class="ball-shadow"
         ></circle>
       </g>
     </svg>
   </div>
 
-  <!-- END SCREEN OVERLAY -->
+  <div class="controls-bar">
+    <button class="btn-control restart" (click)="restart()">RESTART</button>
+    <button class="btn-control stop" (click)="stopGame()">STOP & EXIT</button>
+  </div>
+
   <div *ngIf="winner" class="end-screen-overlay">
     <div class="end-screen-content">
-      <h1 class="winner-text">WINNER</h1>
-      <div class="winner-banner" [style.background-color]="winner === TeamType.Red ? '#FF0000' : '#0000FF'">
-        {{ winner | uppercase }} TEAM
+      <h1 class="winner-text">MATCH FINISHED</h1>
+      <div class="winner-banner" [style.background-color]="winner === TeamType.Red ? '#ff4444' : '#4444ff'">
+        {{ winner | uppercase }} WINS!
       </div>
       
-      <div class="final-score" *ngIf="room">
-        <p class="score-label">Final Score</p>
-        <p class="score-values">Red: {{ room.score.red }} - Blue: {{ room.score.blue }}</p>
+      <div class="final-score">
+        <p>Final Score</p>
+        <div class="score-display">
+            <span class="red">{{ room.score.red }}</span>
+            <span class="divider">-</span>
+            <span class="blue">{{ room.score.blue }}</span>
+        </div>
       </div>
 
       <div class="actions">
-        <button class="btn-restart" (click)="restart()">RESTART GAME</button>
-        <button class="btn-leave" (click)="leaveRoom()">LEAVE ROOM</button>
+        <button class="btn-primary" (click)="restart()">PLAY AGAIN</button>
+        <button class="btn-secondary" (click)="leaveRoom()">LOBBY</button>
       </div>
     </div>
   </div>

@@ -6,7 +6,6 @@ export interface Player {
   id: number,
   socketId: string,
   name: string,
-  isBot: boolean,
   team: TeamType | null,
   characters: Character[],
 }
