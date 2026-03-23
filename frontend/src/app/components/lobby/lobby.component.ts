@@ -72,9 +72,10 @@ export class LobbyComponent implements OnInit, OnDestroy {
     }
   }
 
-  addBot(team: TeamType): void {
+  // ITT A JAVÍTÁS: Bekerült a második paraméter (aiVersion)
+  addBot(team: TeamType, aiVersion: AiVersion = AiVersion.Default): void {
     if (this.room) {
-      this.aiBotManager.addBot(this.room.roomId, team, AiVersion.Default);
+      this.aiBotManager.addBot(this.room.roomId, team, aiVersion);
     }
   }
 
@@ -82,7 +83,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
     this.aiBotManager.removeBot(playerId);
   }
 
-  getBotAiVersion(playerId: number): AiVersion | null {
+  getBotAiVersion(playerId: number): AiVersion {
     return this.aiBotManager.getBotAiVersion(playerId);
   }
 

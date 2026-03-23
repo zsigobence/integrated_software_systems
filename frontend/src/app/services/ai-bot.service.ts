@@ -2,7 +2,6 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { GameService } from './game.service';
 import { Room, TeamType, AiVersion, ClientMessageType, ServerMessageType, GameConfigMessage } from '../models/robosoccer.models';
-import { environment } from '../../environments/environment';
 
 export interface ManagedBot {
   id: string;
@@ -17,38 +16,62 @@ export interface ManagedBot {
 })
 export class AiBotManagerService implements OnDestroy {
   private bots: ManagedBot[] = [];
+  private serverBotAis: { [playerId: number]: AiVersion } = {};
   private currentRoom: Room | null = null;
   private currentConfig: GameConfigMessage | null = null;
   private loopInterval: any;
+  
+  private aiStrategies: { [key: string]: any } = {};
+  private rlBrain: any = null; 
 
   private readonly Kp = 0.3;
   private readonly Kd = 0.4;
   private readonly MAX_ACCEL = 10;
+  
+  private readonly RL_OPP_GOAL = [0, 500];   
+  private readonly RL_OWN_GOAL = [2000, 500]; 
 
   constructor(private gameService: GameService) {
     this.gameService.roomState$.subscribe(r => this.currentRoom = r);
     this.gameService.configState$.subscribe(c => this.currentConfig = c);
+    
+    this.loadAiJSON(AiVersion.PerfectStrategy, '/assets/play_perfect_strategy.json');
+    this.loadAiJSON(AiVersion.HybridStrategy, '/assets/hybrid_strategy.json');
+    this.loadRLBrain('/assets/ai_brain.json');
+    
     this.startAiLoop();
   }
 
-  ngOnDestroy() {
-    if (this.loopInterval) {
-      clearInterval(this.loopInterval);
+  private async loadAiJSON(version: AiVersion, path: string) {
+    try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`HTTP hiba: ${response.status}`);
+        this.aiStrategies[version] = await response.json();
+    } catch (e) {
+        console.error(`[AI BOT] HIBA: Nem sikerült betölteni a ${version} JSON-t (${path}).`, e);
     }
+  }
+
+  private async loadRLBrain(path: string) {
+    try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`HTTP hiba: ${response.status}`);
+        this.rlBrain = await response.json();
+    } catch (e) {
+        console.error(`[AI BOT] HIBA: Nem sikerült betölteni az RL Brain-t (${path}).`, e);
+    }
+  }
+
+  ngOnDestroy() {
+    if (this.loopInterval) clearInterval(this.loopInterval);
     this.clearBots();
   }
 
   addBot(roomId: number, team: TeamType, aiVersion: AiVersion) {
-    const socket = io(environment.serverUrl, { withCredentials: true, transports: ['polling', 'websocket'] });
+    const socket = io('http://localhost:3000', { withCredentials: true, transports: ['polling', 'websocket'] });
     const botId = Math.random().toString(36).substr(2, 9);
     
-    const bot: ManagedBot = {
-      id: botId,
-      socket,
-      playerId: null,
-      team,
-      aiVersion
-    };
+    const bot: ManagedBot = { id: botId, socket, playerId: null, team, aiVersion };
 
     socket.on('connect', () => {
       const botName = `AI_${Math.floor(Math.random() * 1000)}`;
@@ -58,10 +81,6 @@ export class AiBotManagerService implements OnDestroy {
     socket.on(ServerMessageType.ReceiveId, (data: any) => {
       bot.playerId = data.playerId;
       socket.emit(ClientMessageType.PickTeam, { playerId: bot.playerId, team });
-    });
-
-    socket.on(ServerMessageType.Error, (err) => {
-      console.error(`Bot ${botId} error:`, err);
     });
 
     this.bots.push(bot);
@@ -78,23 +97,25 @@ export class AiBotManagerService implements OnDestroy {
   clearBots() {
     this.bots.forEach(b => b.socket.disconnect());
     this.bots = [];
+    this.serverBotAis = {};
   }
 
   isLocalBot(playerId: number): boolean {
     return this.bots.some(b => b.playerId === playerId);
   }
 
-  // ÚJ FÜGGVÉNY: Bot agyának lekérdezése
-  getBotAiVersion(playerId: number): AiVersion | null {
-    const bot = this.bots.find(b => b.playerId === playerId);
-    return bot ? bot.aiVersion : null;
+  getBotAiVersion(playerId: number): AiVersion {
+    const localBot = this.bots.find(b => b.playerId === playerId);
+    if (localBot) return localBot.aiVersion;
+    return this.serverBotAis[playerId] || AiVersion.Default;
   }
 
-  // ÚJ FÜGGVÉNY: Bot agyának módosítása
   changeBotAi(playerId: number, newVersion: AiVersion) {
-    const bot = this.bots.find(b => b.playerId === playerId);
-    if (bot) {
-      bot.aiVersion = newVersion;
+    const localBot = this.bots.find(b => b.playerId === playerId);
+    if (localBot) {
+      localBot.aiVersion = newVersion;
+    } else {
+      this.serverBotAis[playerId] = newVersion;
     }
   }
 
@@ -110,195 +131,463 @@ export class AiBotManagerService implements OnDestroy {
         const player = room.players.find(p => p.id === bot.playerId);
         if (!player) continue;
 
-        this.processBotLogic(bot, player, room, config);
+        this.processBotLogic(bot.team, bot.aiVersion, player, room, config, (charId, ax, ay) => {
+          bot.socket.emit(ClientMessageType.MovementMessage, {
+            playerId: bot.playerId, characterId: charId, x: ax, y: ay
+          });
+        });
+      }
+
+      for (const player of room.players) {
+        if ((player.isBot || player.name.includes('AI_')) && !this.isLocalBot(player.id)) {
+          const aiVersion = this.serverBotAis[player.id] || AiVersion.Default;
+          if (aiVersion !== AiVersion.Default) {
+            this.processBotLogic(player.team as TeamType, aiVersion, player, room, config, (charId, ax, ay) => {
+              this.gameService.sendMovement(player.id, charId, ax, ay);
+            });
+          }
+        }
       }
     }, 33);
   }
 
-  private processBotLogic(bot: ManagedBot, player: any, room: Room, config: GameConfigMessage) {
+  private processBotLogic(botTeam: TeamType, aiVersion: AiVersion, player: any, room: Room, config: GameConfigMessage, sendMovementFn: (charId: number, ax: number, ay: number) => void) {
     const ball = room.ball;
+    const direction = botTeam === TeamType.Blue ? 1 : -1;
     const characters = [...player.characters];
+
     if (characters.length === 0) return;
 
-    // Kék = bal oldal (kapu x=0), Piros = jobb oldal (kapu x=fieldWidth)
-    const isRed = bot.team === TeamType.Red;
-    const ownGoalX = isRed ? config.fieldWidth : 0;
-    const oppGoalX = isRed ? 0 : config.fieldWidth;
-    const oppGoalY = config.fieldHeight / 2;
-    const defendX = isRed ? config.fieldWidth - 50 : 50;
-    const direction = isRed ? -1 : 1;
+    const strategy = this.aiStrategies[aiVersion];
+    
+    if (strategy && strategy.roles) {
+      const Kp = strategy.Kp || this.Kp;
+      const Kd = strategy.Kd || this.Kd;
 
-    if (bot.aiVersion === AiVersion.PerfectStrategy) {
-      this.runPerfectStrategy(bot, characters, ball, config, defendX, direction, oppGoalX, oppGoalY);
-    } else if (bot.aiVersion === AiVersion.Brain5v5) {
-      this.runBrain5v5(bot, characters, ball, config, defendX, direction);
-    } else {
+      let dynamicChars: any[] = [];
+      
+      // ÚJ: Célpontok egyértelmű azonosítása a karakter ID-ja alapján
+      let charTargets: {[charId: number]: {x?: number, y?: number, ax?: number, ay?: number}} = {};
+
+      let context: any = {
+        Math: Math,
+        bx: ball.x,
+        by: ball.y,
+        normBx: direction === 1 ? ball.x : config.fieldWidth - ball.x,
+        fieldWidth: config.fieldWidth,
+        fieldHeight: config.fieldHeight
+      };
+
+      const evaluate = (expr: any, ctx: any) => {
+        if (typeof expr === 'number') return expr;
+        try {
+          const keys = Object.keys(ctx);
+          const values = Object.values(ctx);
+          return new Function(...keys, `return ${expr};`)(...values);
+        } catch (e) {
+          return 0;
+        }
+      };
+
+      // 1. Kapusok (Fix pozíciók) hozzárendelése ID alapján
+      if (strategy.roles.fixed) {
+        for (let i = 0; i < strategy.roles.fixed.length && i < characters.length; i++) {
+          charTargets[characters[i].id] = {
+            x: evaluate(strategy.roles.fixed[i].x, context),
+            y: evaluate(strategy.roles.fixed[i].y, context)
+          };
+        }
+      }
+
+      // 2. Támadók (Dinamikus szerepek) hozzárendelése ID alapján
+      const fixedCount = strategy.roles.fixed ? strategy.roles.fixed.length : 0;
+      if (strategy.roles.dynamic && characters.length > fixedCount) {
+        
+        // Távolság alapú sorbarendezés
+        dynamicChars = characters.slice(fixedCount).sort((a, b) => {
+          return Math.hypot(a.x - ball.x, a.y - ball.y) - Math.hypot(b.x - ball.x, b.y - ball.y);
+        });
+
+        let rlCache: {[charId: number]: {ax: number, ay: number}} = {};
+
+        context.rl_ax = (charIndex: number) => {
+            const char = dynamicChars[charIndex];
+            if (!char) return 0;
+            if (!rlCache[char.id]) rlCache[char.id] = this.getRlAccel(char, ball, direction);
+            return rlCache[char.id].ax;
+        };
+
+        context.rl_ay = (charIndex: number) => {
+            const char = dynamicChars[charIndex];
+            if (!char) return 0;
+            if (!rlCache[char.id]) rlCache[char.id] = this.getRlAccel(char, ball, direction);
+            return rlCache[char.id].ay;
+        };
+
+        let activePhase = strategy.roles.dynamic.phases[0];
+        
+        for (const phase of strategy.roles.dynamic.phases) {
+            if (evaluate(phase.condition, context)) {
+              activePhase = phase;
+              break;
+            }
+        }
+
+        if (activePhase) {
+          let phaseContext = { ...context };
+          
+          if (activePhase.vars) {
+            for (const [key, expr] of Object.entries(activePhase.vars)) {
+              phaseContext[key] = evaluate(expr, phaseContext);
+            }
+          }
+
+          // Kiosztjuk a dinamikus célpontokat az épp kiszámolt sorrend alapján, de már ID-hoz kötve!
+          for (let i = 0; i < activePhase.targets.length && i < dynamicChars.length; i++) {
+            const target = activePhase.targets[i];
+            charTargets[dynamicChars[i].id] = {
+              x: target.x ? evaluate(target.x, phaseContext) : undefined,
+              y: target.y ? evaluate(target.y, phaseContext) : undefined,
+              ax: target.ax ? evaluate(target.ax, phaseContext) : undefined,
+              ay: target.ay ? evaluate(target.ay, phaseContext) : undefined
+            };
+          }
+        }
+      }
+
+      // 3. Végrehajtás: Minden karakter pontosan a saját parancsát kapja meg az ID-ja alapján
       for (const char of characters) {
-        this.moveCharacter(bot, char, ball.x, ball.y);
+        const target = charTargets[char.id];
+
+        // Ha valamiért nem kapott parancsot (pl. kevesebb a célpont, mint a játékos)
+        if (!target) {
+            sendMovementFn(char.id, 0, 0);
+            continue;
+        }
+
+        // Ha direkt RL gyorsulás jött (Hybrid stratégia támadói)
+        if (target.ax !== undefined && target.ay !== undefined) {
+            sendMovementFn(char.id, target.ax, target.ay);
+            continue;
+        }
+
+        // Ha X, Y koordináta jött (Perfect stratégia, vagy kapusok)
+        let tX = target.x!;
+        let tY = target.y!;
+        
+        let finalX = direction === 1 ? tX : config.fieldWidth - tX;
+        finalX = Math.max(70, Math.min(config.fieldWidth - 70, finalX));
+        let finalY = Math.max(70, Math.min(config.fieldHeight - 70, tY));
+
+        const rawAx = Kp * (finalX - char.x) - Kd * char.x_velocity;
+        const rawAy = Kp * (finalY - char.y) - Kd * char.y_velocity;
+        
+        const ax = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAx));
+        const ay = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAy));
+        
+        sendMovementFn(char.id, ax, ay);
       }
-    }
-  }
-
-  /**
-   * MATLAB perfect_strategy bulldozer + sarok-kezelés + aktív védekezés.
-   * Mindkét oldalhoz adaptálódik: a logika "kék perspektívában" (saját kapu x=0)
-   * számol, majd toFieldX() tükrözi a piros oldalra.
-   */
-  private runPerfectStrategy(
-    bot: ManagedBot, characters: any[], ball: any,
-    config: GameConfigMessage, defendX: number, direction: number,
-    oppGoalX: number, oppGoalY: number
-  ) {
-    const W = config.fieldWidth;
-    const H = config.fieldHeight;
-    const isRed = bot.team === TeamType.Red;
-    const bx = ball.x;
-    const by = ball.y;
-
-    // Normalizált labda x: saját kapu = 0, ellenfél kapu = W
-    const nbx = isRed ? W - bx : bx;
-    // X konverzió normalizáltból valós pályakoordinátába
-    const toFieldX = (x: number) => isRed ? W - x : x;
-
-    // === KAPUSOK (1-2): Széthúzott fal ===
-    const goalieCount = Math.min(2, characters.length);
-    const goalieTargets = [
-      { x: toFieldX(50), y: H / 2 - 55 },
-      { x: toFieldX(50), y: H / 2 + 55 }
-    ];
-    for (let i = 0; i < goalieCount; i++) {
-      this.moveCharacter(bot, characters[i], goalieTargets[i].x, goalieTargets[i].y);
+      return; 
     }
 
-    // === TÁMADÓK: távolság alapú szereposztás ===
-    const fieldPlayers = characters.slice(goalieCount);
-    if (fieldPlayers.length === 0) return;
+    // Default 5v5 és Basic AI...
+    const defendX = botTeam === TeamType.Blue ? 50 : config.fieldWidth - 50;
+    
+    const moveChar = (character: any, targetX: number, targetY: number) => {
+      const rawAx = this.Kp * (targetX - character.x) - this.Kd * character.x_velocity;
+      const rawAy = this.Kp * (targetY - character.y) - this.Kd * character.y_velocity;
+      const ax = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAx));
+      const ay = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAy));
+      sendMovementFn(character.id, ax, ay);
+    };
 
-    const sorted = [...fieldPlayers].sort((a, b) =>
-      Math.hypot(a.x - bx, a.y - by) - Math.hypot(b.x - bx, b.y - by)
-    );
-    const carrier = sorted[0];
-    const w1 = sorted.length >= 2 ? sorted[1] : null;
-    const w2 = sorted.length >= 3 ? sorted[2] : null;
+    if (aiVersion === AiVersion.Brain5v5) {
+      if (characters[0]) moveChar(characters[0], defendX, config.fieldHeight / 2);
+      if (characters[1]) moveChar(characters[1], defendX + (direction * 150), ball.y - 100);
+      if (characters[2]) moveChar(characters[2], defendX + (direction * 150), ball.y + 100);
+      if (characters[3]) moveChar(characters[3], ball.x, ball.y);
+      if (characters[4]) moveChar(characters[4], ball.x + (direction * 100), config.fieldHeight / 2);
+      return; 
+    }
 
-    let tCarrier = { x: 0, y: 0 };
-    let tW1 = { x: 0, y: 0 };
-    let tW2 = { x: 0, y: 0 };
+    const centerX = config.fieldWidth / 2;
+    const centerY = config.fieldHeight / 2;
+    const wallMargin = config.playerRadius + config.ballRadius + 30;
+    const nearLeftWall = ball.x <= wallMargin;
+    const nearRightWall = ball.x >= config.fieldWidth - wallMargin;
+    const nearTopWall = ball.y <= wallMargin;
+    const nearBottomWall = ball.y >= config.fieldHeight - wallMargin;
+    const cornerTrap = (nearLeftWall || nearRightWall) && (nearTopWall || nearBottomWall);
 
-    // --- SAROK DETEKTÁLÁS ---
-    let cornerType = 0;
-    if (nbx > W - 200 && by < 200) cornerType = 1;       // Ellenfél felső sarok
-    else if (nbx > W - 200 && by > H - 200) cornerType = 2; // Ellenfél alsó sarok
-    else if (nbx < 200 && by < 200) cornerType = 3;       // Saját felső sarok
-    else if (nbx < 200 && by > H - 200) cornerType = 4;   // Saját alsó sarok
+    for (const char of characters) {
+      let targetX = ball.x;
+      let targetY = ball.y;
 
-    if (cornerType > 0) {
-      // --- BLOKÁD MANŐVER (sarokból kiszabadítás) ---
-      if (cornerType === 1) {
-        tCarrier = { x: toFieldX(W - 300), y: 250 };
-        tW1 = { x: toFieldX(W - 600), y: 300 };
-        tW2 = { x: toFieldX(W - 600), y: 600 };
-      } else if (cornerType === 2) {
-        tCarrier = { x: toFieldX(W - 300), y: H - 250 };
-        tW1 = { x: toFieldX(W - 600), y: H - 300 };
-        tW2 = { x: toFieldX(W - 600), y: H - 600 };
-      } else if (cornerType === 3) {
-        tCarrier = { x: toFieldX(300), y: 250 };
-        tW1 = { x: toFieldX(600), y: 300 };
-        tW2 = { x: toFieldX(600), y: 600 };
-      } else if (cornerType === 4) {
-        tCarrier = { x: toFieldX(300), y: H - 250 };
-        tW1 = { x: toFieldX(600), y: H - 300 };
-        tW2 = { x: toFieldX(600), y: H - 600 };
+      if (cornerTrap) {
+        targetX = ball.x + (centerX - ball.x) * 0.45;
+        targetY = ball.y + (centerY - ball.y) * 0.45;
+      } else {
+        if (nearLeftWall || nearRightWall) targetY = ball.y + Math.sign(centerY - ball.y) * 80;
+        if (nearTopWall || nearBottomWall) targetX = ball.x + Math.sign(centerX - ball.x) * 80;
       }
 
-    } else if (nbx < 600) {
-      // --- AKTÍV VÉDEKEZÉS: Élő Pajzs a saját térfélen ---
-      // Carrier: labda mögé áll, kifelé (az ellenfél felé) tolja
-      tCarrier = { x: toFieldX(Math.max(70, nbx - 40)), y: by };
+      targetX = Math.max(config.playerRadius, Math.min(config.fieldWidth - config.playerRadius, targetX));
+      targetY = Math.max(config.playerRadius, Math.min(config.fieldHeight - config.playerRadius, targetY));
 
-      // W1, W2: dinamikus pajzsfal a kapu és labda között
-      const dirX = nbx - 50;
-      const dirY = by - H / 2;
-      const dirN = Math.hypot(dirX, dirY);
-      const dX = dirN > 1e-6 ? dirX / dirN : 1;
-      const dY = dirN > 1e-6 ? dirY / dirN : 0;
-      const perpX = -dY;
-      const perpY = dX;
-
-      const baseX = 50 + dX * 200;
-      const baseY = H / 2 + dY * 200;
-
-      tW1 = { x: toFieldX(baseX + perpX * 80), y: baseY + perpY * 80 };
-      tW2 = { x: toFieldX(baseX - perpX * 80), y: baseY - perpY * 80 };
-
-    } else {
-      // --- NORMÁL BULLDÓZER (támadás) ---
-      let aimX = W;
-      let aimY = H / 2;
-      let modNbx = nbx;
-      let modBy = by;
-
-      // Falsúrolás korrekció: ha a labda a fal közelében van, eltérítjük a célpontot
-      if (by < 80) { modBy = 120; aimY = 700; }
-      else if (by > H - 80) { modBy = H - 120; aimY = 300; }
-
-      let dtgX = aimX - modNbx;
-      let dtgY = aimY - modBy;
-      const dtgN = Math.hypot(dtgX, dtgY);
-      if (dtgN > 1e-6) { dtgX /= dtgN; dtgY /= dtgN; }
-      const pX = -dtgY;
-      const pY = dtgX;
-
-      // Carrier: labda mögött 45-tel a kapu irányában
-      tCarrier = { x: toFieldX(modNbx - dtgX * 45), y: modBy - dtgY * 45 };
-      // Szélsők: 75-tel hátrább, oldalirányban 65-tel széthúzva
-      tW1 = { x: toFieldX(modNbx - dtgX * 75 + pX * 65), y: modBy - dtgY * 75 + pY * 65 };
-      tW2 = { x: toFieldX(modNbx - dtgX * 75 - pX * 65), y: modBy - dtgY * 75 - pY * 65 };
-    }
-
-    // --- Határok & mozgatás ---
-    const clampX = (x: number) => Math.max(70, Math.min(W - 70, x));
-    const clampY = (y: number) => Math.max(70, Math.min(H - 70, y));
-
-    this.moveCharacter(bot, carrier, clampX(tCarrier.x), clampY(tCarrier.y));
-    if (w1) this.moveCharacter(bot, w1, clampX(tW1.x), clampY(tW1.y));
-    if (w2) this.moveCharacter(bot, w2, clampX(tW2.x), clampY(tW2.y));
-
-    for (let i = 3; i < sorted.length; i++) {
-      this.moveCharacter(bot, sorted[i], bx, by);
+      const dist = Math.hypot(targetX - char.x, targetY - char.y);
+      if (dist > 30) moveChar(char, targetX, targetY);
     }
   }
 
-  private runBrain5v5(
-    bot: ManagedBot, characters: any[], ball: any,
-    config: GameConfigMessage, defendX: number, direction: number
-  ) {
-    if (characters.length >= 5) {
-      this.moveCharacter(bot, characters[0], defendX, config.fieldHeight / 2);
-      this.moveCharacter(bot, characters[1], defendX + (direction * 150), ball.y - 100);
-      this.moveCharacter(bot, characters[2], defendX + (direction * 150), ball.y + 100);
-      this.moveCharacter(bot, characters[3], ball.x, ball.y);
-      this.moveCharacter(bot, characters[4], ball.x + (direction * 100), config.fieldHeight / 2);
-    } else {
-      for (const char of characters) {
-        this.moveCharacter(bot, char, ball.x, ball.y);
+  // =====================================================================
+  // VISSZAÁLLÍTOTT RÉGI AI LOGIKA (Tükrözés támogatással mindkét oldalra)
+  // =====================================================================
+
+  private getRlAccel(char: any, ball: any, direction: number): {ax: number, ay: number} {
+      const isMirrored = (direction === 1); 
+      
+      const v_char = { 
+          x: isMirrored ? 2000 - char.x : char.x, 
+          y: char.y, 
+          x_velocity: isMirrored ? -char.x_velocity : char.x_velocity, 
+          y_velocity: char.y_velocity 
+      };
+      
+      const v_ball = { 
+          x: isMirrored ? 2000 - ball.x : ball.x, 
+          y: ball.y, 
+          x_velocity: isMirrored ? -ball.x_velocity : ball.x_velocity, 
+          y_velocity: ball.y_velocity 
+      };
+
+      const state = this.calculate5DState(v_char, v_ball);
+      const action = this.getBestAction(state);
+      const rawAccel = this.getAccelerationFromAction(action, v_char, v_ball);
+
+      return {
+          ax: isMirrored ? -rawAccel.ax : rawAccel.ax,
+          ay: rawAccel.ay
+      };
+  }
+
+  private calculate5DState(playerData: any, ballData: any): number[] {
+    const p = [playerData.x, playerData.y];
+    const b = [ballData.x, ballData.y];
+    const bv = [ballData.x_velocity ?? 0, ballData.y_velocity ?? 0];
+
+    const d_vec = this.sub(b, p);
+    const raw_dist = this.norm(d_vec);
+    const dist = Math.min(raw_dist, 1000);
+
+    const pb = d_vec;
+    const bg = this.sub(this.RL_OPP_GOAL, b);
+    const attack_angle = Math.atan2(pb[0] * bg[1] - pb[1] * bg[0], pb[0] * bg[0] + pb[1] * bg[1]);
+
+    const bo = this.sub(this.RL_OWN_GOAL, b);
+    const bp = this.sub(p, b);
+    const defense_angle = Math.atan2(bo[0] * bp[1] - bo[1] * bp[0], bo[0] * bp[0] + bo[1] * bp[1]);
+
+    const ball_speed = Math.min(this.norm(bv), 50);
+
+    let ball_x_norm = (1000 - b[0]) / 1000;
+    ball_x_norm = Math.max(-1, Math.min(1, ball_x_norm));
+
+    return [dist, attack_angle, defense_angle, ball_speed, ball_x_norm];
+  }
+
+  private getBestAction(currentState: number[]): number {
+    if (!this.rlBrain || !this.rlBrain.rules_action) return 1;
+
+    let index = 0;
+    let multiplier = 1;
+
+    for (let d = 0; d < 5; d++) {
+        const val = currentState[d];
+        const min = this.rlBrain.grid_min[d];
+        const step = this.rlBrain.grid_step[d];
+        const n = this.rlBrain.grid_n[d];
+        const isCirc = this.rlBrain.is_circular[d];
+
+        let coord = (val - min) / step;
+        
+        if (isCirc) {
+            coord = coord % n;
+            if (coord < 0) coord += n;
+        } else {
+            coord = Math.max(0, Math.min(n - 1, coord));
+        }
+        
+        let safeIdx = Math.round(coord);
+        if (isCirc) {
+            safeIdx = safeIdx % n;
+        } else {
+            safeIdx = Math.max(0, Math.min(n - 1, safeIdx));
+        }
+
+        index += safeIdx * multiplier;
+        multiplier *= n;
+    }
+
+    if (index >= this.rlBrain.rules_action.length || index < 0) return 1;
+    return this.rlBrain.rules_action[index];
+  }
+
+  private getAccelerationFromAction(actionId: number, playerData: any, ballData: any): {ax: number, ay: number} {
+    const player = [playerData.x, playerData.y];
+    const ball = [ballData.x, ballData.y];
+    const v_player = [playerData.x_velocity ?? 0, playerData.y_velocity ?? 0];
+    const ball_v = [ballData.x_velocity ?? 0, ballData.y_velocity ?? 0];
+    
+    let ax = 0, ay = 0;
+    const speed = this.norm(v_player);
+
+    switch (actionId) {
+      case 1: 
+      case 2: { 
+        const to_ball = this.sub(ball, player);
+        const to_own = this.sub(this.RL_OWN_GOAL, ball);
+        const bn = this.norm(to_ball);
+        const tn = this.norm(to_own);
+        
+        const push_cos = (bn > 1e-6 && tn > 1e-6) ? this.dot(to_ball, to_own) / (bn * tn) : -1;
+        
+        if (push_cos > 0.1 && bn > 60) {
+            let from_opp = this.sub(ball, this.RL_OPP_GOAL);
+            from_opp = this.scale(from_opp, 1 / Math.max(1e-6, this.norm(from_opp)));
+            
+            let side = Math.sign(500 - player[1]);
+            if (side === 0) side = 1;
+            const perp = [-from_opp[1] * side, from_opp[0] * side];
+            
+            const target = this.add(this.add(ball, this.scale(from_opp, 80)), this.scale(perp, 50));
+            let dir = this.sub(target, player);
+            const dn = this.norm(dir);
+            dir = dn > 1e-6 ? this.scale(dir, 1/dn) : [0,0];
+            
+            ax = dir[0] * this.MAX_ACCEL; 
+            ay = dir[1] * this.MAX_ACCEL;
+        } else { 
+            let dir = bn > 1e-6 ? this.scale(to_ball, 1/bn) : [0,0];
+            ax = dir[0] * this.MAX_ACCEL; 
+            ay = dir[1] * this.MAX_ACCEL;
+        }
+        break;
+      }
+
+      case 3: { 
+        let t_opt = 5;
+        for (let t = 5; t <= 40; t += 5) {
+            const B_pred = this.add(ball, this.scale(ball_v, (1 - Math.pow(0.98, t)) / (1 - 0.98)));
+            const shoot_tgt = ball[1] > 500 ? [0, 420] : [0, 580];
+            let dir_to_tgt = this.sub(shoot_tgt, B_pred);
+            dir_to_tgt = this.scale(dir_to_tgt, 1 / Math.max(1e-6, this.norm(dir_to_tgt)));
+            
+            const P_contact = this.sub(B_pred, this.scale(dir_to_tgt, 60));
+            if (this.norm(this.sub(P_contact, player)) < 20 * t) {
+                t_opt = t; 
+                break;
+            }
+        }
+        
+        const B_pred = this.add(ball, this.scale(ball_v, (1 - Math.pow(0.98, t_opt)) / (1 - 0.98)));
+        const shoot_tgt = ball[1] > 500 ? [0, 420] : [0, 580];
+        const btg = this.sub(shoot_tgt, B_pred);
+        const btg_dir = this.scale(btg, 1 / Math.max(1e-6, this.norm(btg)));
+        
+        const aim_pt = this.add(B_pred, this.scale(btg_dir, 500)); 
+        let dir = this.sub(aim_pt, player);
+        const dn = this.norm(dir);
+        dir = dn > 1e-6 ? this.scale(dir, 1/dn) : btg_dir;
+        
+        ax = dir[0] * this.MAX_ACCEL; 
+        ay = dir[1] * this.MAX_ACCEL;
+        break;
+      }
+
+      case 4: { 
+        const T_LOOK = Math.max(2, Math.min(10, this.norm(this.sub(this.RL_OWN_GOAL, ball)) / 100));
+        const B_pred = this.add(ball, this.scale(ball_v, (1 - Math.pow(0.98, T_LOOK)) / (1 - 0.98)));
+        B_pred[0] = Math.max(20, Math.min(1980, B_pred[0]));
+        B_pred[1] = Math.max(20, Math.min(980, B_pred[1]));
+        
+        const POST_TOP = [2000, 400]; 
+        const POST_BOT = [2000, 600];
+        const v_top = this.sub(POST_TOP, B_pred);
+        const v_bot = this.sub(POST_BOT, B_pred);
+        const ang_top = Math.atan2(v_top[1], v_top[0]);
+        const ang_bot = Math.atan2(v_bot[1], v_bot[0]);
+        
+        let cone_angle = Math.abs(ang_top - ang_bot);
+        if (cone_angle > Math.PI) cone_angle = 2 * Math.PI - cone_angle;
+        const cone_half = cone_angle / 2;
+        
+        let opt_d = 50 / Math.max(0.1, Math.sin(cone_half));
+        const dist_to_goal = this.norm(this.sub(this.RL_OWN_GOAL, B_pred));
+        opt_d = Math.min(opt_d, dist_to_goal - 60, 200);
+        opt_d = Math.max(opt_d, 60); 
+        
+        const btg = this.sub(this.RL_OWN_GOAL, B_pred);
+        const btg_dir = this.scale(btg, 1 / Math.max(1e-6, this.norm(btg)));
+        const target = this.add(B_pred, this.scale(btg_dir, opt_d));
+        target[0] = Math.max(50, Math.min(1950, target[0]));
+        target[1] = Math.max(50, Math.min(950, target[1]));
+        
+        const err = this.sub(target, player);
+        const err_dist = this.norm(err);
+        let f_tot = [0, 0];
+
+        if (err_dist > 1e-6) {
+            const req_accel = this.scale(err, this.MAX_ACCEL / err_dist);
+            const feedforward = this.scale(ball_v, 0.4); 
+            const damping = (err_dist < 40) ? this.scale(v_player, -0.3) : this.scale(v_player, -0.05);
+            f_tot = this.add(this.add(req_accel, feedforward), damping);
+        } else {
+            f_tot = this.scale(v_player, -0.3);
+        }
+        
+        const fn = this.norm(f_tot);
+        if (fn > this.MAX_ACCEL) f_tot = this.scale(f_tot, this.MAX_ACCEL / fn);
+        ax = f_tot[0]; 
+        ay = f_tot[1];
+        
+        if (this.norm(this.sub(ball, player)) < 85) {
+            ax = -this.MAX_ACCEL; 
+            ay = 0;
+            if (Math.abs(ball[1] - 500) > 40) ay = Math.sign(ball[1] - 500) * this.MAX_ACCEL;
+        }
+        break;
+      }
+
+      case 5: { 
+        if (speed > 1) {
+            ax = -v_player[0] / speed * this.MAX_ACCEL;
+            ay = -v_player[1] / speed * this.MAX_ACCEL;
+        }
+        break;
+      }
+
+      case 6: { 
+        let clear_dir = this.sub(ball, this.RL_OWN_GOAL);
+        clear_dir = this.scale(clear_dir, 1 / Math.max(1e-6, this.norm(clear_dir)));
+        const side_dir = ball[1] > 500 ? [0.5, 1] : [0.5, -1];
+        
+        let dir = this.add(clear_dir, side_dir);
+        dir = this.scale(dir, 1 / this.norm(dir));
+        ax = dir[0] * this.MAX_ACCEL; 
+        ay = dir[1] * this.MAX_ACCEL;
+        break;
       }
     }
+
+    ax = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, ax));
+    ay = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, ay));
+
+    return { ax, ay };
   }
 
-  private moveCharacter(bot: ManagedBot, character: any, targetX: number, targetY: number) {
-    const rawAx = this.Kp * (targetX - character.x) - this.Kd * character.x_velocity;
-    const rawAy = this.Kp * (targetY - character.y) - this.Kd * character.y_velocity;
-
-    const ax = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAx));
-    const ay = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAy));
-
-    bot.socket.emit(ClientMessageType.MovementMessage, {
-      playerId: bot.playerId,
-      characterId: character.id,
-      x: ax,
-      y: ay
-    });
-  }
+  private add(a: number[], b: number[]): number[] { return [a[0] + b[0], a[1] + b[1]]; }
+  private sub(a: number[], b: number[]): number[] { return [a[0] - b[0], a[1] - b[1]]; }
+  private scale(a: number[], scalar: number): number[] { return [a[0] * scalar, a[1] * scalar]; }
+  private dot(a: number[], b: number[]): number { return a[0] * b[0] + a[1] * b[1]; }
+  private norm(a: number[]): number { return Math.sqrt(a[0] * a[0] + a[1] * a[1]); }
 }

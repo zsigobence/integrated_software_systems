@@ -82,7 +82,8 @@ export interface GameConfigMessage {
 export enum AiVersion {
   Default = 'default',
   Brain5v5 = 'brain5v5',
-  PerfectStrategy = 'perfect'
+  PerfectStrategy = 'perfect',
+  HybridStrategy = 'hybrid'
 }
 
 export enum ServerMessageType {

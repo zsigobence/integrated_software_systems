@@ -1,0 +1,24 @@
+{
+  "name": "Hybrid Strategy (Static GK + RL Attackers)",
+  "Kp": 0.3,
+  "Kd": 0.4,
+  "roles": {
+    "fixed": [
+      { "x": "50", "y": "445" },
+      { "x": "50", "y": "555" }
+    ],
+    "dynamic": {
+      "sortBy": "distance_to_ball",
+      "phases": [
+        {
+          "condition": "true",
+          "targets": [
+            { "ax": "rl_ax(0)", "ay": "rl_ay(0)" },
+            { "ax": "rl_ax(1)", "ay": "rl_ay(1)" },
+            { "ax": "rl_ax(2)", "ay": "rl_ay(2)" }
+          ]
+        }
+      ]
+    }
+  }
+}

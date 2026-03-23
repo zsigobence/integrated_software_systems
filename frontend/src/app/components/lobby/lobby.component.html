@@ -21,6 +21,7 @@
               <option [value]="AiVersion.Default">Normal AI</option>
               <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
               <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
+			  <option [value]="AiVersion.HybridStrategy">Hybrid</option>
             </select>
           </div>
           <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>
@@ -46,6 +47,7 @@
               <option [value]="AiVersion.Default">Normal AI</option>
               <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
               <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
+			  <option [value]="AiVersion.HybridStrategy">Hybrid</option>
             </select>
           </div>
           <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>

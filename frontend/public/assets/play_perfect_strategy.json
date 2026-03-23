@@ -1,44 +1,87 @@
 {
-  "meta": {
-    "strategy_name": "Perfect Strategy v2.0",
-    "description": "Bulldózer, ami saját térfélen Aktív Élő Pajzzsá alakul (Sarok-beragadás védelemmel)",
-    "type": "hybrid_state_machine"
-  },
-  "physics_parameters": {
-    "Kp": 0.3,
-    "Kd": 0.4,
-    "max_acceleration": 10
-  },
-  "team_roles": {
-    "defenders": [
-      {
-        "role_id": "gk_1",
-        "name": "Goalie Top",
-        "target": { "type": "static", "x": 50, "y": 445 }
-      },
-      {
-        "role_id": "gk_2",
-        "name": "Goalie Bottom",
-        "target": { "type": "static", "x": 50, "y": 555 }
-      }
+  "name": "Perfect Strategy JSON Engine",
+  "Kp": 0.3,
+  "Kd": 0.4,
+  "roles": {
+    "fixed": [
+      { "x": "50", "y": "445" },
+      { "x": "50", "y": "555" }
     ],
-    "attackers": {
-      "assignment_logic": "sort_by_distance_to_ball",
-      "roles": ["Carrier", "Winger 1", "Winger 2"],
-      "phases": {
-        "phase_1_corner_blockade": {
-          "condition": "Ball is in one of the 4 corners (Death Zones)",
-          "behavior": "Lézárják a sarokból kivezető utat, megakadályozva a beragadást."
+    "dynamic": {
+      "sortBy": "distance_to_ball",
+      "phases": [
+        {
+          "condition": "normBx > fieldWidth - 120 && by < 120",
+          "targets": [
+            { "x": "fieldWidth - 300", "y": "250" },
+            { "x": "fieldWidth - 600", "y": "300" },
+            { "x": "fieldWidth - 600", "y": "600" }
+          ]
         },
-        "phase_2_active_defense": {
-          "condition": "Ball is closer than 600 units to own goal (but not in corner)",
-          "behavior": "A Carrier oldalra tolja a labdát, a két Winger pedig egy 200 egység sugarú, dinamikus élő pajzsot von a kapu elé."
+        {
+          "condition": "normBx > fieldWidth - 120 && by > fieldHeight - 120",
+          "targets": [
+            { "x": "fieldWidth - 300", "y": "fieldHeight - 250" },
+            { "x": "fieldWidth - 600", "y": "fieldHeight - 300" },
+            { "x": "fieldWidth - 600", "y": "fieldHeight - 600" }
+          ]
         },
-        "phase_3_bulldozer": {
-          "condition": "Ball is in the opponent's half or middle field",
-          "behavior": "Ék alakzat. A Carrier hátulról tolja a labdát a kapu felé, a Wingerek biztosítják a széleket. Falsúrolás korrekcióval."
+        {
+          "condition": "normBx < 120 && by < 120",
+          "targets": [
+            { "x": "300", "y": "250" },
+            { "x": "600", "y": "300" },
+            { "x": "600", "y": "600" }
+          ]
+        },
+        {
+          "condition": "normBx < 120 && by > fieldHeight - 120",
+          "targets": [
+            { "x": "300", "y": "fieldHeight - 250" },
+            { "x": "600", "y": "fieldHeight - 300" },
+            { "x": "600", "y": "fieldHeight - 600" }
+          ]
+        },
+        {
+          "condition": "normBx < 600",
+          "vars": {
+            "dirX": "normBx - 50",
+            "dirY": "by - (fieldHeight / 2)",
+            "normDist": "Math.hypot(dirX, dirY) || 1",
+            "nX": "dirX / normDist",
+            "nY": "dirY / normDist",
+            "perpX": "-nY",
+            "perpY": "nX",
+            "baseX": "50 + nX * 200",
+            "baseY": "(fieldHeight / 2) + nY * 200"
+          },
+          "targets": [
+            { "x": "normBx - 40", "y": "by" },
+            { "x": "baseX + perpX * 80", "y": "baseY + perpY * 80" },
+            { "x": "baseX - perpX * 80", "y": "baseY - perpY * 80" }
+          ]
+        },
+        {
+          "condition": "true",
+          "vars": {
+            "aimX": "fieldWidth",
+            "modBy": "by < 80 ? 120 : (by > fieldHeight - 80 ? fieldHeight - 120 : by)",
+            "aimY": "by < 80 ? (fieldHeight / 2) + 200 : (by > fieldHeight - 80 ? (fieldHeight / 2) - 200 : fieldHeight / 2)",
+            "dirX": "aimX - normBx",
+            "dirY": "aimY - modBy",
+            "normDist": "Math.hypot(dirX, dirY) || 1",
+            "nX": "dirX / normDist",
+            "nY": "dirY / normDist",
+            "perpX": "-nY",
+            "perpY": "nX"
+          },
+          "targets": [
+            { "x": "normBx - nX * 45", "y": "modBy - nY * 45" },
+            { "x": "normBx - nX * 75 + perpX * 65", "y": "modBy - nY * 75 + perpY * 65" },
+            { "x": "normBx - nX * 75 - perpX * 65", "y": "modBy - nY * 75 - perpY * 65" }
+          ]
         }
-      }
+      ]
     }
   }
 }
