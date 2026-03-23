@@ -48,7 +48,11 @@ export class SocketHandler {
       
       // 2. Calculate the physics for each active room
       activeRooms.forEach(room => {
-        this.physicsEngine.updateRoom(room);
+        const collisions = this.physicsEngine.updateRoom(room);
+
+        collisions.forEach(collision => {
+            this.io.to(room.roomId.toString()).emit(ServerMessageType.Collision, collision);
+        });
 
         // 3. Send the updated room back to the clients
         this.io.to(room.roomId.toString()).emit(ServerMessageType.ReceiveRoom, room);
@@ -81,7 +85,7 @@ export class SocketHandler {
       socket.on(ClientMessageType.PickTeam, (content) => this.handlers?.pickTeamHandler(socket, content.team));
       socket.on(ClientMessageType.StartGame, (content) => this.handlers?.startGameHandler(socket));
       socket.on(ClientMessageType.RestartGame, (content) => this.handlers?.restartGameHandler(socket));
-      socket.on(ClientMessageType.MovementMessage, (content) => this.handlers?.movementMessageHandler(socket, content.x, content.y));
+      socket.on(ClientMessageType.MovementMessage, (content) => this.handlers?.movementMessageHandler(socket, content.characterId, content.x, content.y));
 
       socket.on('disconnect', () => {
         this.handlers?.disconnectHandler(socket); // Call leaveRoomHandler on disconnect

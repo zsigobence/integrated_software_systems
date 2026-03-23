@@ -1,8 +1,8 @@
 import { Room } from "../../model/room"
 import { Player } from "../../model/player"
+import { Character } from "../../model/character"
 import { TeamType } from "../../model/message-interfaces";
 import { GameConfig } from "./constants";
-import { get } from "http";
 
 export class RobosoccerDatabase {
   // This class will handle the database connection and queries
@@ -13,20 +13,70 @@ export class RobosoccerDatabase {
     this.roomdb = []; // Initialize as null, can be assigned a Room object later
   }
 
-  public createPlayer(username: string, id: number, socketId: string): Player {
-    // Create a new player object
-    const newPlayer: Player = {
-      id: id,      // Player ID from room ids
-      socketId: socketId, // Socket ID from socket connection
-      name: username,   // Player's name
-      team: TeamType.Blue, // Team will be default Blue
-      isInactive: false, // Default to false
+  public createCharacter(playerId: number, characterId: number): Character {
+    // Create a new character object
+    const newCharacter: Character = {
+      id: characterId,      // Character ID 
+      playerId: playerId, // Player ID from room ids
       x: 0, // Default x position
       y: 0,  // Default y position
       x_velocity: 0, // Default x velocity
       y_velocity: 0, // Default y velocity
     };
+    return newCharacter; // Return the new character object
+  }
+
+  public createPlayer(username: string, id: number, socketId: string, isBot: boolean = false): Player {
+    // Create a new player object
+    const newPlayer: Player = {
+      id: id,      // Player ID from room ids
+      socketId: socketId, // Socket ID from socket connection
+      name: username,   // Player's name
+      isBot: isBot,
+      team: TeamType.Blue, // Team will be default Blue
+      characters: [], // Initialize characters array
+    };
+
+    for (let i = 0; i < GameConfig.CHARACTERS_PER_PLAYER; i++) {
+      const character = this.createCharacter(newPlayer.id, i);
+      newPlayer.characters.push(character);
+    }
+
     return newPlayer; // Return the new player object
+  }
+
+  private createBotPlayer(room: Room, team: TeamType): Player {
+    const botId = this.generateUniquePlayerId(room);
+    const bot = this.createPlayer(`AI ${team.toUpperCase()}`, botId, `bot:${room.roomId}:${botId}`, true);
+    bot.team = team;
+    return bot;
+  }
+
+  private ensureBots(room: Room): void {
+    if (!GameConfig.ENABLE_BOTS) {
+      return;
+    }
+
+    const existingBots = room.players.filter(player => player.isBot).length;
+    const botsNeeded = Math.max(0, GameConfig.BOTS_PER_ROOM - existingBots);
+
+    for (let i = 0; i < botsNeeded; i++) {
+      const blueCount = this.getTeamNumberInRoom(room, TeamType.Blue);
+      const redCount = this.getTeamNumberInRoom(room, TeamType.Red);
+      const botTeam = redCount <= blueCount ? TeamType.Red : TeamType.Blue;
+      room.players.push(this.createBotPlayer(room, botTeam));
+    }
+  }
+
+  private rebalanceBotTeams(room: Room): void {
+    const blueHumanCount = room.players.filter(player => !player.isBot && player.team === TeamType.Blue).length;
+    const redHumanCount = room.players.filter(player => !player.isBot && player.team === TeamType.Red).length;
+
+    room.players
+      .filter(player => player.isBot)
+      .forEach(bot => {
+        bot.team = redHumanCount <= blueHumanCount ? TeamType.Red : TeamType.Blue;
+      });
   }
 
   // Method to create a new room
@@ -48,6 +98,7 @@ export class RobosoccerDatabase {
     };
 
     this.roomdb.push(newRoom); // Assign the new room to the database
+    this.ensureBots(newRoom);
     console.log("Rooms open: " + this.roomdb.length);
 
     return newRoom; // Return the new room
@@ -63,6 +114,8 @@ export class RobosoccerDatabase {
     } 
 
     room.players.push(player); // Add the player to the room
+    this.ensureBots(room);
+    this.rebalanceBotTeams(room);
     return room; // Return the updated room
   }
 
@@ -73,7 +126,11 @@ export class RobosoccerDatabase {
       // Find the player by socket ID in the room
       const player = room.players.find(player => player.socketId === socketId);
       if (player) {
+        if (player.isBot) {
+          return room;
+        }
         player.team = team; // Set the player's team to the selected team
+        this.rebalanceBotTeams(room);
         return room; // Return the room
       }
     }
@@ -101,8 +158,11 @@ export class RobosoccerDatabase {
 
       // Remove the player from the room
       room.players = room.players.filter(player => player.socketId !== socketId);
+      this.rebalanceBotTeams(room);
 
-      if (room.players.length === 0) {
+      const hasHumanPlayers = room.players.some(player => !player.isBot);
+
+      if (!hasHumanPlayers) {
         // If no players left, remove the room from the database
         this.roomdb = this.roomdb.filter(r => r.roomId !== room.roomId);
         console.log("Rooms open: " + this.roomdb.length);
@@ -115,45 +175,22 @@ export class RobosoccerDatabase {
     }
   }
 
-  public setPlayerInactive(socketId: string): Room | null {
-    // Find the room by socket ID
-    const room = this.getRoomBySocketId(socketId); // Get the room ID from the socket ID
-    if (room) {
-      // Find the player by socket ID in the room
-      const player = room.players.find(player => player.socketId === socketId);
-      if (player) {
-        player.isInactive = true; // Set the player's isInactive property to true
-        return room; // Return the room
-      }
-    }
-    return null; // Return null if the room does not exist
-  }
 
-  public setPlayerActive(socketId: string): Room | null {
-    // Find the room by socket ID
-    const room = this.getRoomBySocketId(socketId); // Get the room ID from the socket ID
-    if (room) {
-      // Find the player by socket ID in the room
-      const player = room.players.find(player => player.socketId === socketId);
-      if (player) {
-        player.isInactive = false; // Set the player's isInactive property to true
-        return room; // Return the room
-      }
-    }
-    return null; // Return null if the room does not exist
-  }
 
-  public handleMovement(socketId: string, x: number, y: number): Room | null {
+  public handleMovement(socketId: string, characterId: number, x: number, y: number): Room | null {
 
     const room = this.getRoomBySocketId(socketId); // Get the room ID from the socket ID
     if (room) {
       // Find the player by socket ID in the room
       const player = room.players.find(player => player.socketId === socketId);
       if (player && room.countdownTicks === 0 && player.team !== TeamType.Spectator) { // Only allow movement if the player exists (and is not a spectator) and countdown is not active
-        const constrainedX = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, x));
-        const constrainedY = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, y));
-        player.x_velocity += constrainedX; // Update the player's x velocity
-        player.y_velocity += constrainedY; // Update the player's y velocity
+        const character = player.characters.find(c => c.id === characterId);
+        if (character) {
+          const constrainedX = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, x));
+          const constrainedY = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, y));
+          character.x_velocity += constrainedX; // Update the character's x velocity
+          character.y_velocity += constrainedY; // Update the character's y velocity
+        }
       }
       return room; // Return the room
     }

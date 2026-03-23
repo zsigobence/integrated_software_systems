@@ -35,6 +35,7 @@ export interface IdMessage {
 
 export interface MovementMessage {
   playerId: number | null,
+  characterId: number | null,
   x: number | null,
   y: number | null
 }
@@ -54,4 +55,9 @@ export interface GameConfigMessage {
     goalMaxY: number;
     winScore: number;
     countdown: number;
+}
+
+export interface CollisionMessage {
+    playerId: number;
+    characterId: number;
 }

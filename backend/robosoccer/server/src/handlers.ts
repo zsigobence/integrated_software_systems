@@ -50,7 +50,8 @@ export class ServerHandlers {
                 goalMinY: GameConfig.GOAL_MIN_Y,
                 goalMaxY: GameConfig.GOAL_MAX_Y,
                 winScore: GameConfig.WIN_SCORE,
-                countdown: GameConfig.COUNTDOWN_SEC
+                countdown: GameConfig.COUNTDOWN_SEC,
+                characterNumber: GameConfig.CHARACTERS_PER_PLAYER
             });
             socket.join(room.roomId.toString()); // Join the room in the socket
             console.log(`Client ${socket.id} tried to create new room while having an already existing one (${room.roomId})`);
@@ -78,7 +79,8 @@ export class ServerHandlers {
             goalMinY: GameConfig.GOAL_MIN_Y,
             goalMaxY: GameConfig.GOAL_MAX_Y,
             winScore: GameConfig.WIN_SCORE,
-            countdown: GameConfig.COUNTDOWN_SEC
+            countdown: GameConfig.COUNTDOWN_SEC,
+            characterNumber: GameConfig.CHARACTERS_PER_PLAYER
         });
         socket.join(room.roomId.toString()); // Join the room in the socket
         console.log(`Client (SID: ${socket.id}) created room (ID: ${room.roomId}) with username: ${username}`);
@@ -115,7 +117,8 @@ export class ServerHandlers {
                 goalMinY: GameConfig.GOAL_MIN_Y,
                 goalMaxY: GameConfig.GOAL_MAX_Y,
                 winScore: GameConfig.WIN_SCORE,
-                countdown: GameConfig.COUNTDOWN_SEC
+                countdown: GameConfig.COUNTDOWN_SEC,
+                characterNumber: GameConfig.CHARACTERS_PER_PLAYER
             });
             this.io.to(socket.id).emit(ServerMessageType.ReceiveId, idmessage); // Send the socket ID back to the client
             this.io.to(socket.id).emit(ServerMessageType.ReceiveRoom, existingRoom); // Send a message back to the client
@@ -163,7 +166,8 @@ export class ServerHandlers {
             goalMinY: GameConfig.GOAL_MIN_Y,
             goalMaxY: GameConfig.GOAL_MAX_Y,
             winScore: GameConfig.WIN_SCORE,
-            countdown: GameConfig.COUNTDOWN_SEC
+            countdown: GameConfig.COUNTDOWN_SEC,
+            characterNumber: GameConfig.CHARACTERS_PER_PLAYER
         });
         socket.join(room.roomId.toString()); 
         this.io.to(room.roomId.toString()).emit(ServerMessageType.ReceiveRoom, room);
@@ -216,8 +220,8 @@ export class ServerHandlers {
     }
 
     public disconnectHandler(socket: Socket) {
-        console.log(`Client ${socket.id} disconnected, setting status to inactive`);
-        const room = this.database.setPlayerInactive(socket.id); // Leave the room in the database
+        console.log(`Client ${socket.id} disconnected, removing player from room`);
+        const room = this.database.leaveRoom(socket.id); // Leave the room in the database
 
         if (room) { // If the room exists, send a message back to the client
             this.io.to(room.roomId.toString()).emit(ServerMessageType.ReceiveRoom, room); // Send a message back to the client
@@ -247,9 +251,9 @@ export class ServerHandlers {
         }
     }
 
-    public movementMessageHandler(socket: Socket, x: any, y: any) {
-        console.log(`Client ${socket.id} sent movement message: x=${x}, y=${y}`);
-        const room = this.database.handleMovement(socket.id, x, y); // Handle the movement in the database
+    public movementMessageHandler(socket: Socket, characterId: number, x: any, y: any) {
+        console.log(`Client ${socket.id} sent movement message: characterId=${characterId}, x=${x}, y=${y}`);
+        const room = this.database.handleMovement(socket.id, characterId, x, y); // Handle the movement in the database
         if (!room) {
             this.roomNotFoundError(socket); // If the room does not exist, send an error message
         }

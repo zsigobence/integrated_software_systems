@@ -1,4 +1,4 @@
-import { TeamType } from "../../model/message-interfaces";
+import { CollisionMessage, TeamType } from "../../model/message-interfaces";
 import { Room } from "../../model/room";
 import { GameConfig } from "./constants";
 
@@ -11,43 +11,51 @@ export class PhysicsEngine {
         const blueTeamX = GameConfig.FIELD_WIDTH / 4;
         const redTeamX = GameConfig.FIELD_WIDTH * 3 / 4;
 
-        bluePlayers.forEach((player, index) => {
-            player.x = blueTeamX;
-            player.y = (GameConfig.FIELD_HEIGHT / (bluePlayers.length + 1)) * (index + 1);
-            player.x_velocity = 0;
-            player.y_velocity = 0;
+        bluePlayers.forEach(player => {
+            player.characters.forEach((character, index) => {
+                character.x = blueTeamX;
+                character.y = (GameConfig.FIELD_HEIGHT / (player.characters.length + 1)) * (index + 1);
+                character.x_velocity = 0;
+                character.y_velocity = 0;
+            });
         });
 
-        redPlayers.forEach((player, index) => {
-            player.x = redTeamX;
-            player.y = (GameConfig.FIELD_HEIGHT / (redPlayers.length + 1)) * (index + 1);
-            player.x_velocity = 0;
-            player.y_velocity = 0;
+        redPlayers.forEach(player => {
+            player.characters.forEach((character, index) => {
+                character.x = redTeamX;
+                character.y = (GameConfig.FIELD_HEIGHT / (player.characters.length + 1)) * (index + 1);
+                character.x_velocity = 0;
+                character.y_velocity = 0;
+            });
         });
     }
     
-public updateRoom(room: Room) {
+    public updateRoom(room: Room): CollisionMessage[] {
+        const collisions: CollisionMessage[] = [];
 
     if (room.isStarted) {
 
         if (room.countdownTicks > 0) {
 
             room.countdownTicks --; // Decrease countdown
-            return; // Skip the rest of the loop for this room
+            return collisions;
         }
+
+        this.applyBotMovement(room);
 
         //Update positions based on velocities
         room.players.forEach(p => {
+            if (p.team !== TeamType.Spectator) {
+                p.characters.forEach(c => {
+                    c.x_velocity = Math.max(-GameConfig.MAX_SPEED, Math.min(GameConfig.MAX_SPEED, c.x_velocity));
+                    c.y_velocity = Math.max(-GameConfig.MAX_SPEED, Math.min(GameConfig.MAX_SPEED, c.y_velocity));
 
-            if (p.team != TeamType.Spectator) {
-            p.x_velocity = Math.max(-GameConfig.MAX_SPEED, Math.min(GameConfig.MAX_SPEED, p.x_velocity));
-            p.y_velocity = Math.max(-GameConfig.MAX_SPEED, Math.min(GameConfig.MAX_SPEED, p.y_velocity));
-
-            p.x += p.x_velocity;
-            p.y += p.y_velocity;
-            p.x_velocity *= GameConfig.FRICTION; // Apply friction
-            p.y_velocity *= GameConfig.FRICTION;
-            this.handleWallCollision(p, GameConfig.PLAYER_RADIUS);
+                    c.x += c.x_velocity;
+                    c.y += c.y_velocity;
+                    c.x_velocity *= GameConfig.FRICTION; // Apply friction
+                    c.y_velocity *= GameConfig.FRICTION;
+                    this.handleWallCollision(c, GameConfig.PLAYER_RADIUS);
+                });
             }
         });
 
@@ -71,17 +79,78 @@ public updateRoom(room: Room) {
 
             }
             
-            return;
+            return collisions;
         }
 
         // Check collisions between Players and the Ball
         room.players.forEach(p => {
-            this.handleCircleCollision(p, room.ball, GameConfig.PLAYER_RADIUS, GameConfig.BALL_RADIUS);
+            p.characters.forEach(c => {
+                if (this.handleCircleCollision(c, room.ball, GameConfig.PLAYER_RADIUS, GameConfig.BALL_RADIUS)) {
+                    collisions.push({ playerId: p.id, characterId: c.id });
+                }
+            });
         });
     }
 
-    return;
+    return collisions;
 }
+
+    private applyBotMovement(room: Room): void {
+        if (!GameConfig.ENABLE_BOTS) {
+            return;
+        }
+
+        const botPlayers = room.players.filter(player => player.isBot && player.team !== TeamType.Spectator);
+        const centerX = GameConfig.FIELD_WIDTH / 2;
+        const centerY = GameConfig.FIELD_HEIGHT / 2;
+        const wallMargin = GameConfig.PLAYER_RADIUS + GameConfig.BALL_RADIUS + 30;
+        const nearLeftWall = room.ball.x <= wallMargin;
+        const nearRightWall = room.ball.x >= GameConfig.FIELD_WIDTH - wallMargin;
+        const nearTopWall = room.ball.y <= wallMargin;
+        const nearBottomWall = room.ball.y >= GameConfig.FIELD_HEIGHT - wallMargin;
+        const cornerTrap = (nearLeftWall || nearRightWall) && (nearTopWall || nearBottomWall);
+
+        botPlayers.forEach(player => {
+            player.characters.forEach(character => {
+                let targetX = room.ball.x;
+                let targetY = room.ball.y;
+
+                // Anti-trap steering: when the ball is near walls/corners, bots try to move it
+                // back toward the center line instead of pinning it into the wall.
+                if (cornerTrap) {
+                    targetX = room.ball.x + (centerX - room.ball.x) * 0.45;
+                    targetY = room.ball.y + (centerY - room.ball.y) * 0.45;
+                } else {
+                    if (nearLeftWall || nearRightWall) {
+                        targetY = room.ball.y + Math.sign(centerY - room.ball.y) * 80;
+                    }
+                    if (nearTopWall || nearBottomWall) {
+                        targetX = room.ball.x + Math.sign(centerX - room.ball.x) * 80;
+                    }
+                }
+
+                targetX = Math.max(GameConfig.PLAYER_RADIUS, Math.min(GameConfig.FIELD_WIDTH - GameConfig.PLAYER_RADIUS, targetX));
+                targetY = Math.max(GameConfig.PLAYER_RADIUS, Math.min(GameConfig.FIELD_HEIGHT - GameConfig.PLAYER_RADIUS, targetY));
+
+                const dx = targetX - character.x;
+                const dy = targetY - character.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance <= GameConfig.BOT_MIN_BALL_DISTANCE) {
+                    return;
+                }
+
+                const normalizedX = dx / distance;
+                const normalizedY = dy / distance;
+
+                const accelerationX = normalizedX * GameConfig.BOT_ACCELERATION;
+                const accelerationY = normalizedY * GameConfig.BOT_ACCELERATION;
+
+                character.x_velocity += Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, accelerationX));
+                character.y_velocity += Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, accelerationY));
+            });
+        });
+    }
 
 private handleWallCollision(entity: any, radius: number, isBall: boolean = false, room?: Room): boolean {
         let goalScored = false;
@@ -134,7 +203,7 @@ private handleWallCollision(entity: any, radius: number, isBall: boolean = false
     
     }
 
-    private handleCircleCollision(c1: any, c2: any, r1: number, r2: number) {
+    private handleCircleCollision(c1: any, c2: any, r1: number, r2: number): boolean {
         const dx = c2.x - c1.x;
         const dy = c2.y - c1.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -165,6 +234,8 @@ private handleWallCollision(entity: any, radius: number, isBall: boolean = false
                 c2.x_velocity -= nx * bounce;
                 c2.y_velocity -= ny * bounce;
             }
+            return true;
         }
+        return false;
     }
 }

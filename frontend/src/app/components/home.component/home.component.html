@@ -2,22 +2,32 @@
   <img ngSrc="/assets/background.jpg" alt="background" class="background" fill priority />
 
   <div class="menu-buttons">
+    <div class="input-group">
+      <label for="username">Username:</label>
+      <input type="text" id="username" [(ngModel)]="username">
+    </div>
+
     <button 
       (click)="singleplayer()" 
       [class.active]="activeButton === 'single'">
-      Singleplayer (lokális nézet)
+      Singleplayer
     </button>
 
     <button 
       (click)="multiplayer()" 
       [class.active]="activeButton === 'multi'">
-      Új multiplayer szoba
+      Create Room
     </button>
+
+    <div class="input-group">
+      <label for="roomId">Room ID:</label>
+      <input type="number" id="roomId" [(ngModel)]="roomId">
+    </div>
 
     <button 
       (click)="joinGame()" 
       [class.active]="activeButton === 'join'">
-      Csatlakozás szobához
+      Join Game
     </button>
 
     <button 

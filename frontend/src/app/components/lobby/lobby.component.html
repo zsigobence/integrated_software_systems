@@ -1,0 +1,31 @@
+<div class="lobby-container" *ngIf="room">
+  <h1>Room ID: {{ room.roomId }}</h1>
+
+  <div class="teams">
+    <div class="team">
+      <h2>Team Red</h2>
+      <ul>
+        <li *ngFor="let player of getTeam(TeamType.Red)">{{ player.name }}{{ player.isBot ? ' (AI)' : '' }}</li>
+      </ul>
+      <button (click)="joinTeam(TeamType.Red)">Join Team Red</button>
+    </div>
+
+    <div class="team">
+      <h2>Team Blue</h2>
+      <ul>
+        <li *ngFor="let player of getTeam(TeamType.Blue)">{{ player.name }}{{ player.isBot ? ' (AI)' : '' }}</li>
+      </ul>
+      <button (click)="joinTeam(TeamType.Blue)">Join Team Blue</button>
+    </div>
+
+    <div class="team">
+      <h2>Spectators</h2>
+      <ul>
+        <li *ngFor="let player of getSpectators()">{{ player.name }}{{ player.isBot ? ' (AI)' : '' }}</li>
+      </ul>
+      <button (click)="joinTeam(TeamType.Spectator)">Join Spectators</button>
+    </div>
+  </div>
+
+  <button (click)="startGame()">Start Game</button>
+</div>
