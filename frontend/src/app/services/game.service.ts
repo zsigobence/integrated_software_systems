@@ -26,7 +26,7 @@ export class GameService {
   public gameOverState$ = this.gameOverStateSubject.asObservable();
 
   // ÚJ: Ütközések állapota
-  private collisionStateSubject = new Subject<models.CollisionMessage>();
+  private collisionStateSubject = new BehaviorSubject<models.CollisionMessage | null>(null);
   public collisionState$ = this.collisionStateSubject.asObservable();
 
   constructor(private websocketService: WebsocketService) {
@@ -64,9 +64,12 @@ export class GameService {
     });
 
     // ÚJ: Ütközések lehallgatása
-    this.websocketService.listen<models.CollisionMessage>(models.ServerMessageType.Collision).subscribe((collision) => {
-      this.collisionStateSubject.next(collision);
-    });
+    this.websocketService
+      .listen<models.CollisionMessage>(models.ServerMessageType.Collision)
+      .subscribe((collision) => {
+        console.log('Received collision:', collision);
+        this.collisionStateSubject.next(collision);
+      });
   }
 
   public createRoom(username: string): void {
@@ -116,8 +119,13 @@ export class GameService {
     }
   }
 
-  public sendMovement(playerId: number, characterId: number, x: number, y: number): void {
-    const payload: models.MovementMessage = { playerId, characterId, x, y };
-    this.websocketService.send(models.ClientMessageType.MovementMessage, payload);
+  
+  public sendMovement(coordinates: { x: number, y: number }[]): void {
+    console.log("SEND MOVEMENT CALLED WITH:", coordinates);
+  
+    this.websocketService.send(
+      models.ClientMessageType.MovementMessage,
+      { coordinates }
+    );
   }
 }

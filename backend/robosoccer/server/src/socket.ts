@@ -85,7 +85,7 @@ export class SocketHandler {
       socket.on(ClientMessageType.PickTeam, (content) => this.handlers?.pickTeamHandler(socket, content.team));
       socket.on(ClientMessageType.StartGame, (content) => this.handlers?.startGameHandler(socket));
       socket.on(ClientMessageType.RestartGame, (content) => this.handlers?.restartGameHandler(socket));
-      socket.on(ClientMessageType.MovementMessage, (content) => this.handlers?.movementMessageHandler(socket, content.characterId, content.x, content.y));
+      socket.on(ClientMessageType.MovementMessage, (content) => this.handlers?.movementMessageHandler(socket, content.coordinates));
 
       socket.on('disconnect', () => {
         this.handlers?.disconnectHandler(socket); // Call leaveRoomHandler on disconnect

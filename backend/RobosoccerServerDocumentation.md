@@ -140,7 +140,7 @@ These are the messages that the client can send to the server.
 
 -   **Type**: `movementMessage`
 -   **Payload**: `MovementMessage`
--   **Description**: Sent by the client to update their character's movement direction. The payload contains a `characterId` and `x` and `y` values representing the direction of movement. Movements may only be sent at 60 FPS, sending it faster may lead to omitting frames.
+-   **Description**: Sent by the client to update their characters' movement directions. The payload contains a `coordinates` array. Each element in the array is an object with `x` and `y` values representing the direction of movement for the character at that index. For example, `coordinates[0]` corresponds to the character with ID 0. Movements may only be sent at 60 FPS, sending it faster may lead to omitting frames.
 
 ## 6. Useful Notes for Frontend Developers
 
@@ -244,10 +244,7 @@ interface IdMessage {
 
 ```typescript
 interface MovementMessage {
-  playerId: number | null;
-  characterId: number | null;
-  x: number | null;
-  y: number | null;
+  coordinates: { x: number, y: number }[],
 }
 ```
 
