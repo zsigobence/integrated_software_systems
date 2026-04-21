@@ -37,6 +37,8 @@ export class AiBotManagerService implements OnDestroy {
     
     this.loadAiJSON(AiVersion.PerfectStrategy, '/assets/play_perfect_strategy.json');
     this.loadAiJSON(AiVersion.HybridStrategy, '/assets/hybrid_strategy.json');
+    this.loadAiJSON(AiVersion.HybridV2Strategy, '/assets/hybrid_strategy_v2.json');
+    this.loadAiJSON(AiVersion.HybridV3Strategy, '/assets/hybrid_strategy_v3.json');
     this.loadRLBrain('/assets/ai_brain.json');
     
     this.startAiLoop();
@@ -173,6 +175,8 @@ export class AiBotManagerService implements OnDestroy {
         Math: Math,
         bx: ball.x,
         by: ball.y,
+        bvx: ball.x_velocity ?? 0,
+        bvy: ball.y_velocity ?? 0,
         normBx: direction === 1 ? ball.x : config.fieldWidth - ball.x,
         fieldWidth: config.fieldWidth,
         fieldHeight: config.fieldHeight

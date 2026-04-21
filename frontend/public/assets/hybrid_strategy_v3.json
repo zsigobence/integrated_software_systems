@@ -1,0 +1,24 @@
+{
+  "name": "Hybrid V3 (Predictive GK + Roles: Presser / Support / Wide)",
+  "Kp": 0.35,
+  "Kd": 0.45,
+  "roles": {
+    "fixed": [
+      { "x": "50",  "y": "Math.max(390, Math.min(610, by + bvy * 8))" },
+      { "x": "180", "y": "Math.max(280, Math.min(720, by + bvy * 15))" }
+    ],
+    "dynamic": {
+      "sortBy": "distance_to_ball",
+      "phases": [
+        {
+          "condition": "true",
+          "targets": [
+            { "ax": "rl_ax(0)", "ay": "rl_ay(0)" },
+            { "x": "Math.max(300, normBx - 250)", "y": "Math.max(80, Math.min(fieldHeight - 80, by + bvy * 5 - 120))" },
+            { "x": "1800", "y": "Math.max(100, Math.min(fieldHeight - 100, by + bvy * 3))" }
+          ]
+        }
+      ]
+    }
+  }
+}
