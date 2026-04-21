@@ -21,7 +21,7 @@ npm install
 > [!IMPORTANT]
 > **IP Address Configuration Required**
 >
-> You **HAVE** to replace the hardcoded IP address (`192.168.0.142`) in `package.json` with your own computer's local network IP address in the `start` script.
+> You **HAVE** to replace the hardcoded IP address (`192.168.88.1`) in `package.json` with your own computer's local network IP address in the `start` script.
 >
 > Additionally, ensure the `serverUrl` in `src/environments/environment.ts` and `src/environments/environment.prod.ts` is updated to point to your backend server's IP address.
 

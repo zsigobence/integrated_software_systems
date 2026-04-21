@@ -133,19 +133,24 @@ export class RobosoccerDatabase {
 
 
 
-  public handleMovement(socketId: string, characterId: number, x: number, y: number): Room | null {
+  public handleMovement(socketId: string, coordinates: { x: number, y: number }[]): Room | null {
 
     const room = this.getRoomBySocketId(socketId); // Get the room ID from the socket ID
     if (room) {
       // Find the player by socket ID in the room
       const player = room.players.find(player => player.socketId === socketId);
       if (player && room.countdownTicks === 0 && player.team !== TeamType.Spectator) { // Only allow movement if the player exists (and is not a spectator) and countdown is not active
-        const character = player.characters.find(c => c.id === characterId);
-        if (character) {
-          const constrainedX = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, x));
-          const constrainedY = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, y));
-          character.x_velocity += constrainedX; // Update the character's x velocity
-          character.y_velocity += constrainedY; // Update the character's y velocity
+        for (let i = 0; i < coordinates.length; i++) {
+          if (i < player.characters.length) {
+            const character = player.characters[i];
+            const coordinate = coordinates[i];
+            if (character && coordinate) {
+              const constrainedX = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, coordinate.x));
+              const constrainedY = Math.max(-GameConfig.MAX_ACCELERATION, Math.min(GameConfig.MAX_ACCELERATION, coordinate.y));
+              character.x_velocity += constrainedX; // Update the character's x velocity
+              character.y_velocity += constrainedY; // Update the character's y velocity
+            }
+          }
         }
       }
       return room; // Return the room

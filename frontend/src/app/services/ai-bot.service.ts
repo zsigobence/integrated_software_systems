@@ -124,32 +124,84 @@ export class AiBotManagerService implements OnDestroy {
   private startAiLoop() {
     this.loopInterval = setInterval(() => {
       if (!this.currentRoom || !this.currentRoom.isStarted || !this.currentConfig) return;
-
+  
       const room = this.currentRoom;
       const config = this.currentConfig;
-
+  
+      // 👉 Botonként gyűjtjük a koordinátákat
+      const botCoordinatesMap = new Map<string, { x: number; y: number }[]>();
+  
+      // =========================
+      // BOTOK KEZELÉSE
+      // =========================
       for (const bot of this.bots) {
         if (bot.playerId === null) continue;
+        if (!bot.socket.id) continue; // ✅ TypeScript fix
+  
+        const socketId = bot.socket.id;
+  
         const player = room.players.find(p => p.id === bot.playerId);
         if (!player) continue;
-
-        this.processBotLogic(bot.team, bot.aiVersion, player, room, config, (charId, ax, ay) => {
-          bot.socket.emit(ClientMessageType.MovementMessage, {
-            playerId: bot.playerId, characterId: charId, x: ax, y: ay
-          });
+  
+        // inicializáljuk a koordináta listát
+        botCoordinatesMap.set(socketId, []);
+  
+        this.processBotLogic(
+          bot.team,
+          bot.aiVersion,
+          player,
+          room,
+          config,
+          (charId, ax, ay) => {
+            const coords = botCoordinatesMap.get(socketId);
+            if (!coords) return;
+  
+            coords.push({ x: ax, y: ay });
+          }
+        );
+      }
+  
+      // =========================
+      // EMIT BOTONKÉNT (1 emit / bot)
+      // =========================
+      for (const bot of this.bots) {
+        if (bot.playerId === null) continue;
+        if (!bot.socket.id) continue; // ✅ TypeScript fix
+  
+        const socketId = bot.socket.id;
+  
+        const coords = botCoordinatesMap.get(socketId);
+  
+        if (!coords || coords.length === 0) continue;
+  
+        bot.socket.emit(ClientMessageType.MovementMessage, {
+          coordinates: coords
         });
       }
-
+  
+      // =========================
+      // HUMAN / SERVER AI PLAYERS
+      // (eredeti logika megtartva)
+      // =========================
       for (const player of room.players) {
         if ((player.isBot || player.name.includes('AI_')) && !this.isLocalBot(player.id)) {
           const aiVersion = this.serverBotAis[player.id] || AiVersion.Default;
+  
           if (aiVersion !== AiVersion.Default) {
-            this.processBotLogic(player.team as TeamType, aiVersion, player, room, config, (charId, ax, ay) => {
-              this.gameService.sendMovement(player.id, charId, ax, ay);
-            });
+            this.processBotLogic(
+              player.team as any,
+              aiVersion,
+              player,
+              room,
+              config,
+              (charId, ax, ay) => {
+                this.gameService.sendMovement([{ x: ax, y: ay }]);
+              }
+            );
           }
         }
       }
+  
     }, 33);
   }
 

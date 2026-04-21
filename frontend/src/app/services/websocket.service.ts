@@ -24,12 +24,9 @@ export class WebsocketService {
   }
 
   send(eventName: models.ClientMessageType, data: any): void {
-    // Eltároljuk az AI verziót a StartGame és RestartGame üzenetekből
-    if (eventName === models.ClientMessageType.StartGame || eventName === models.ClientMessageType.RestartGame) {
-      if (data && data.aiVersion) {
-        this.lastAiVersion = data.aiVersion;
-      }
-    }
+    console.log("SOCKET EMIT EVENT:", eventName);
+    console.log("SOCKET EMIT DATA:", data);
+  
     this.socket.emit(eventName, data);
   }
 }

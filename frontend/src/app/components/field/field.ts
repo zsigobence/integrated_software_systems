@@ -25,7 +25,7 @@ export class Field implements OnInit, OnDestroy {
   private configSubscription: Subscription | undefined;
   private idSubscription: Subscription | undefined;
   private gameOverSubscription: Subscription | undefined;
-
+  private collisionSubscription: Subscription | undefined;
   private acceleration = { x: 0, y: 0 };
   private keysPressed: { [key: string]: boolean } = {};
   private readonly ACCELERATION_STEP = 10;
@@ -57,6 +57,13 @@ export class Field implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     });
 
+    this.collisionSubscription = this.gameService.collisionState$.subscribe((collision) => {
+      if (collision) {
+        console.log('Collision detected:', collision);
+        // Here you could add logic to show a visual effect for the collision
+      }
+    });
+
     if (this.playerId === null) {
       this.gameService.getId();
     }
@@ -67,6 +74,7 @@ export class Field implements OnInit, OnDestroy {
     if (this.configSubscription) this.configSubscription.unsubscribe();
     if (this.idSubscription) this.idSubscription.unsubscribe();
     if (this.gameOverSubscription) this.gameOverSubscription.unsubscribe();
+    if (this.collisionSubscription) this.collisionSubscription.unsubscribe();
     if (this.movementIntervalId !== null) clearInterval(this.movementIntervalId);
   }
 
@@ -108,9 +116,10 @@ export class Field implements OnInit, OnDestroy {
         if (this.playerId !== null && this.room) {
           const player = this.room.players.find(p => p.id === this.playerId);
           if (player) {
-            player.characters.forEach(character => {
-              this.gameService.sendMovement(this.playerId as number, character.id, this.acceleration.x, this.acceleration.y);
-            });
+            const coordinates = player.characters
+              .sort((a, b) => a.id - b.id)
+              .map(() => ({ x: this.acceleration.x, y: this.acceleration.y }));
+            this.gameService.sendMovement(coordinates);
           }
         }
       }, 33);
@@ -120,9 +129,8 @@ export class Field implements OnInit, OnDestroy {
       if (this.playerId !== null && this.room) {
         const player = this.room.players.find(p => p.id === this.playerId);
         if (player) {
-          player.characters.forEach(character => {
-            this.gameService.sendMovement(this.playerId as number, character.id, 0, 0);
-          });
+          const coordinates = player.characters.map(() => ({ x: 0, y: 0 }));
+          this.gameService.sendMovement(coordinates);
         }
       }
     }
