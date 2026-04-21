@@ -5,34 +5,6 @@
   </div>
 
   <div class="teams-grid">
-    <div class="team-card red">
-      <div class="team-title">RED TEAM</div>
-      <div class="player-list">
-        <div class="player-item" *ngFor="let player of getTeam(TeamType.Red)">
-          <div class="player-info">
-            <span class="name">{{ player.name }}</span>
-            <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
-            
-            <select 
-              *ngIf="aiBotManager.isLocalBot(player.id)" 
-              class="bot-ai-select" 
-              (change)="onBotAiChange(player.id, $event)" 
-              [value]="getBotAiVersion(player.id)">
-              <option [value]="AiVersion.Default">Normal AI</option>
-              <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
-              <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
-			  <option [value]="AiVersion.HybridStrategy">Hybrid</option>
-              <option [value]="AiVersion.HybridV2Strategy">Hybrid V2 (Roles)</option>
-              <option [value]="AiVersion.HybridV3Strategy">Hybrid V3 (Predictive)</option>
-            </select>
-          </div>
-          <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>
-        </div>
-      </div>
-      <button class="btn-join" (click)="joinTeam(TeamType.Red)">Join Red</button>
-      <button class="btn-add-bot" (click)="addBot(TeamType.Red)">+ Add AI Bot</button>
-    </div>
-
     <div class="team-card blue">
       <div class="team-title">BLUE TEAM</div>
       <div class="player-list">
@@ -40,11 +12,11 @@
           <div class="player-info">
             <span class="name">{{ player.name }}</span>
             <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
-            
-            <select 
-              *ngIf="aiBotManager.isLocalBot(player.id)" 
-              class="bot-ai-select" 
-              (change)="onBotAiChange(player.id, $event)" 
+
+            <select
+              *ngIf="aiBotManager.isLocalBot(player.id)"
+              class="bot-ai-select"
+              (change)="onBotAiChange(player.id, $event)"
               [value]="getBotAiVersion(player.id)">
               <option [value]="AiVersion.Default">Normal AI</option>
               <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
@@ -59,6 +31,34 @@
       </div>
       <button class="btn-join" (click)="joinTeam(TeamType.Blue)">Join Blue</button>
       <button class="btn-add-bot" (click)="addBot(TeamType.Blue)">+ Add AI Bot</button>
+    </div>
+
+    <div class="team-card red">
+      <div class="team-title">RED TEAM</div>
+      <div class="player-list">
+        <div class="player-item" *ngFor="let player of getTeam(TeamType.Red)">
+          <div class="player-info">
+            <span class="name">{{ player.name }}</span>
+            <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
+
+            <select
+              *ngIf="aiBotManager.isLocalBot(player.id)"
+              class="bot-ai-select"
+              (change)="onBotAiChange(player.id, $event)"
+              [value]="getBotAiVersion(player.id)">
+              <option [value]="AiVersion.Default">Normal AI</option>
+              <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
+              <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
+			  <option [value]="AiVersion.HybridStrategy">Hybrid</option>
+              <option [value]="AiVersion.HybridV2Strategy">Hybrid V2 (Roles)</option>
+              <option [value]="AiVersion.HybridV3Strategy">Hybrid V3 (Predictive)</option>
+            </select>
+          </div>
+          <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>
+        </div>
+      </div>
+      <button class="btn-join" (click)="joinTeam(TeamType.Red)">Join Red</button>
+      <button class="btn-add-bot" (click)="addBot(TeamType.Red)">+ Add AI Bot</button>
     </div>
 
     <div class="team-card spectators">

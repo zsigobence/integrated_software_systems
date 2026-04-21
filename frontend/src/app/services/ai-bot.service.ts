@@ -1,4 +1,5 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable, OnDestroy, Inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { io, Socket } from 'socket.io-client';
 import { GameService } from './game.service';
 import { Room, TeamType, AiVersion, ClientMessageType, ServerMessageType, GameConfigMessage } from '../models/robosoccer.models';
@@ -31,17 +32,18 @@ export class AiBotManagerService implements OnDestroy {
   private readonly RL_OPP_GOAL = [0, 500];   
   private readonly RL_OWN_GOAL = [2000, 500]; 
 
-  constructor(private gameService: GameService) {
+  constructor(private gameService: GameService, @Inject(PLATFORM_ID) private platformId: Object) {
     this.gameService.roomState$.subscribe(r => this.currentRoom = r);
     this.gameService.configState$.subscribe(c => this.currentConfig = c);
-    
-    this.loadAiJSON(AiVersion.PerfectStrategy, '/assets/play_perfect_strategy.json');
-    this.loadAiJSON(AiVersion.HybridStrategy, '/assets/hybrid_strategy.json');
-    this.loadAiJSON(AiVersion.HybridV2Strategy, '/assets/hybrid_strategy_v2.json');
-    this.loadAiJSON(AiVersion.HybridV3Strategy, '/assets/hybrid_strategy_v3.json');
-    this.loadRLBrain('/assets/ai_brain.json');
-    
-    this.startAiLoop();
+
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadAiJSON(AiVersion.PerfectStrategy, '/assets/play_perfect_strategy.json');
+      this.loadAiJSON(AiVersion.HybridStrategy, '/assets/hybrid_strategy.json');
+      this.loadAiJSON(AiVersion.HybridV2Strategy, '/assets/hybrid_strategy_v2.json');
+      this.loadAiJSON(AiVersion.HybridV3Strategy, '/assets/hybrid_strategy_v3.json');
+      this.loadRLBrain('/assets/ai_brain.json');
+      this.startAiLoop();
+    }
   }
 
   private async loadAiJSON(version: AiVersion, path: string) {

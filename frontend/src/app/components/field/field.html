@@ -1,11 +1,11 @@
 <div id="game-container" *ngIf="room && config">
-  
+
   <div class="top-bar">
-    <div class="score-card red-side">
-      <span class="team-name">RED</span>
-      <span class="points">{{ room.score.red }}</span>
+    <div class="score-card blue-side">
+      <span class="team-name">BLUE</span>
+      <span class="points">{{ room.score.blue }}</span>
     </div>
-    
+
     <div class="game-info">
       <div class="timer" *ngIf="room.countdownTicks > 0">
         {{ (room.countdownTicks / 60) | number:'1.0-0' }}
@@ -13,9 +13,9 @@
       <div class="vs-label" *ngIf="room.countdownTicks <= 0">VS</div>
     </div>
 
-    <div class="score-card blue-side">
-      <span class="points">{{ room.score.blue }}</span>
-      <span class="team-name">BLUE</span>
+    <div class="score-card red-side">
+      <span class="points">{{ room.score.red }}</span>
+      <span class="team-name">RED</span>
     </div>
   </div>
 
@@ -25,36 +25,131 @@
       [attr.height]="config.fieldHeight"
       id="soccer-field"
     >
-      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="#2d5a27"></rect>
-      
-      <line [attr.x1]="config.fieldWidth/2" y1="0" [attr.x2]="config.fieldWidth/2" [attr.height]="config.fieldHeight" stroke="white" stroke-width="2" opacity="0.5"></line>
-      <circle [attr.cx]="config.fieldWidth/2" [attr.cy]="config.fieldHeight/2" r="80" fill="none" stroke="white" stroke-width="2" opacity="0.5"></circle>
+      <defs>
+        <!-- Grass gradient -->
+        <linearGradient id="grassGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stop-color="#1e5c1a"/>
+          <stop offset="50%"  stop-color="#246120"/>
+          <stop offset="100%" stop-color="#1e5c1a"/>
+        </linearGradient>
 
-      <rect x="0" [attr.y]="config.goalMinY" width="15" [attr.height]="config.goalMaxY - config.goalMinY" [attr.fill]="leftGoalColor"></rect>
+        <!-- Stripe pattern -->
+        <pattern id="stripes" x="0" y="0" [attr.width]="config.fieldWidth / 10" height="9999" patternUnits="userSpaceOnUse">
+          <rect x="0" y="0" [attr.width]="config.fieldWidth / 20" height="9999" fill="rgba(0,0,0,0.07)"/>
+        </pattern>
 
-      <rect [attr.x]="config.fieldWidth - 15" [attr.y]="config.goalMinY" width="15" [attr.height]="config.goalMaxY - config.goalMinY" [attr.fill]="rightGoalColor"></rect>
+        <!-- Ball shadow filter -->
+        <filter id="ballShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.55)"/>
+        </filter>
 
+        <!-- Blue player glow -->
+        <filter id="blueGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="rgba(80,140,255,0.7)"/>
+        </filter>
+
+        <!-- Red player glow -->
+        <filter id="redGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="rgba(255,80,80,0.7)"/>
+        </filter>
+      </defs>
+
+      <!-- Base grass -->
+      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="url(#grassGrad)"/>
+      <!-- Stripe overlay -->
+      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="url(#stripes)"/>
+
+      <!-- Boundary line -->
+      <rect x="2" y="2" [attr.width]="config.fieldWidth - 4" [attr.height]="config.fieldHeight - 4"
+            fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+
+      <!-- Center line -->
+      <line [attr.x1]="config.fieldWidth/2" y1="2"
+            [attr.x2]="config.fieldWidth/2" [attr.y2]="config.fieldHeight - 2"
+            stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+
+      <!-- Center circle -->
+      <circle [attr.cx]="config.fieldWidth/2" [attr.cy]="config.fieldHeight/2"
+              r="100" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+      <!-- Center spot -->
+      <circle [attr.cx]="config.fieldWidth/2" [attr.cy]="config.fieldHeight/2"
+              r="4" fill="rgba(255,255,255,0.7)"/>
+
+      <!-- Left penalty area -->
+      <rect x="2" [attr.y]="config.fieldHeight/2 - 150" width="180" height="300"
+            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+      <!-- Left goal area (small box) -->
+      <rect x="2" [attr.y]="config.fieldHeight/2 - 80" width="70" height="160"
+            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+      <!-- Left penalty spot -->
+      <circle [attr.cx]="120" [attr.cy]="config.fieldHeight/2" r="3" fill="rgba(255,255,255,0.6)"/>
+
+      <!-- Right penalty area -->
+      <rect [attr.x]="config.fieldWidth - 182" [attr.y]="config.fieldHeight/2 - 150" width="180" height="300"
+            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+      <!-- Right goal area (small box) -->
+      <rect [attr.x]="config.fieldWidth - 72" [attr.y]="config.fieldHeight/2 - 80" width="70" height="160"
+            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+      <!-- Right penalty spot -->
+      <circle [attr.cx]="config.fieldWidth - 120" [attr.cy]="config.fieldHeight/2" r="3" fill="rgba(255,255,255,0.6)"/>
+
+      <!-- Corner arcs -->
+      <path [attr.d]="'M 2,2 A 30,30 0 0 1 32,2'"         fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+      <path [attr.d]="'M 2,' + (config.fieldHeight-2) + ' A 30,30 0 0 0 32,' + (config.fieldHeight-2)"
+            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+      <path [attr.d]="'M ' + (config.fieldWidth-2) + ',2 A 30,30 0 0 0 ' + (config.fieldWidth-32) + ',2'"
+            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+      <path [attr.d]="'M ' + (config.fieldWidth-2) + ',' + (config.fieldHeight-2) + ' A 30,30 0 0 1 ' + (config.fieldWidth-32) + ',' + (config.fieldHeight-2)"
+            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+
+      <!-- Left goal (blue) -->
+      <rect x="0" [attr.y]="config.goalMinY"
+            width="18" [attr.height]="config.goalMaxY - config.goalMinY"
+            fill="rgba(68,136,255,0.55)" stroke="rgba(68,136,255,0.9)" stroke-width="2" rx="2"/>
+
+      <!-- Right goal (red) -->
+      <rect [attr.x]="config.fieldWidth - 18" [attr.y]="config.goalMinY"
+            width="18" [attr.height]="config.goalMaxY - config.goalMinY"
+            fill="rgba(255,68,68,0.55)" stroke="rgba(255,68,68,0.9)" stroke-width="2" rx="2"/>
+
+      <!-- Players -->
+      @for (p of getAllCharacters(); track p.id) {
       <g>
         <circle
-          *ngFor="let p of getAllCharacters()"
+          [attr.cx]="p.x"
+          [attr.cy]="p.y"
+          [attr.r]="config.playerRadius + 2"
+          [attr.fill]="p.team === 'red' ? 'rgba(255,40,40,0.25)' : 'rgba(40,100,255,0.25)'"
+        />
+        <circle
           [attr.cx]="p.x"
           [attr.cy]="p.y"
           [attr.r]="config.playerRadius"
-          [attr.fill]="p.team === 'red' ? '#ff4444' : '#4444ff'"
-          stroke="white"
+          [attr.fill]="p.team === 'red' ? '#ff3333' : '#2255ee'"
+          [attr.filter]="p.team === 'red' ? 'url(#redGlow)' : 'url(#blueGlow)'"
+          stroke="rgba(255,255,255,0.85)"
           stroke-width="2"
-        ></circle>
-        
-        <circle
-          [attr.cx]="room.ball.x"
-          [attr.cy]="room.ball.y"
-          [attr.r]="config.ballRadius"
-          fill="#fff"
-          stroke="#000"
-          stroke-width="1"
-          class="ball-shadow"
-        ></circle>
+        />
       </g>
+      }
+
+      <!-- Ball -->
+      <circle
+        [attr.cx]="room.ball.x"
+        [attr.cy]="room.ball.y"
+        [attr.r]="config.ballRadius + 2"
+        fill="rgba(0,0,0,0.18)"
+      />
+      <circle
+        [attr.cx]="room.ball.x"
+        [attr.cy]="room.ball.y"
+        [attr.r]="config.ballRadius"
+        fill="#ffffff"
+        stroke="#222"
+        stroke-width="1.5"
+        filter="url(#ballShadow)"
+        class="ball"
+      />
     </svg>
   </div>
 
@@ -66,16 +161,18 @@
   <div *ngIf="winner" class="end-screen-overlay">
     <div class="end-screen-content">
       <h1 class="winner-text">MATCH FINISHED</h1>
-      <div class="winner-banner" [style.background-color]="winner === TeamType.Red ? '#ff4444' : '#4444ff'">
+      <div class="winner-banner"
+           [class.blue-win]="winner === TeamType.Blue"
+           [class.red-win]="winner === TeamType.Red">
         {{ winner | uppercase }} WINS!
       </div>
-      
+
       <div class="final-score">
         <p>Final Score</p>
         <div class="score-display">
-            <span class="red">{{ room.score.red }}</span>
-            <span class="divider">-</span>
-            <span class="blue">{{ room.score.blue }}</span>
+          <span class="blue">{{ room.score.blue }}</span>
+          <span class="divider">–</span>
+          <span class="red">{{ room.score.red }}</span>
         </div>
       </div>
 
@@ -85,4 +182,5 @@
       </div>
     </div>
   </div>
+
 </div>

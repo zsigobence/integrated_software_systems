@@ -1,45 +1,65 @@
 <div class="container">
   <img ngSrc="/assets/background.jpg" alt="background" class="background" fill priority />
+  <div class="overlay"></div>
 
-  <div class="menu-buttons">
-    <div class="input-group">
-      <label for="username">Username:</label>
-      <input type="text" id="username" [(ngModel)]="username">
+  <div class="home-layout">
+
+    <div class="title-section">
+      <h1 class="game-title">ROBO<span>SOCCER</span></h1>
+      <p class="subtitle">MULTIPLAYER ROBOT FOOTBALL</p>
     </div>
 
-    <button 
-      (click)="singleplayer()" 
-      [class.active]="activeButton === 'single'">
-      Singleplayer
-    </button>
+    <div class="menu-panel">
 
-    <button 
-      (click)="multiplayer()" 
-      [class.active]="activeButton === 'multi'">
-      Create Room
-    </button>
+      <div class="input-field">
+        <span class="input-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
+        <input
+          type="text"
+          id="username"
+          placeholder="Enter username…"
+          [(ngModel)]="username"
+          autocomplete="off"
+        />
+      </div>
 
-    <div class="input-group">
-      <label for="roomId">Room ID:</label>
-      <input type="number" id="roomId" [(ngModel)]="roomId">
+      <div class="primary-actions">
+        <button class="btn btn-primary" (click)="singleplayer()">
+          
+          <span>Singleplayer</span>
+        </button>
+        <button class="btn btn-primary" (click)="multiplayer()">
+          
+          <span>Create Room</span>
+        </button>
+      </div>
+
+      <div class="divider">
+        <span class="divider-line"></span>
+        <span class="divider-text">or join existing</span>
+        <span class="divider-line"></span>
+      </div>
+
+      <div class="join-section">
+        <div class="input-field">
+          <span class="input-icon input-icon--hash">#</span>
+          <input
+            type="number"
+            id="roomId"
+            placeholder="Room ID…"
+            [(ngModel)]="roomId"
+          />
+        </div>
+        <button class="btn btn-join" (click)="joinGame()">
+          <span>Join Game</span>
+          <span class="arrow">→</span>
+        </button>
+      </div>
+
     </div>
-
-    <button 
-      (click)="joinGame()" 
-      [class.active]="activeButton === 'join'">
-      Join Game
-    </button>
-
-    <button 
-      (click)="leaderboard()" 
-      [class.active]="activeButton === 'leader'">
-      Leaderboard
-    </button>
-
-    <button 
-      (click)="quit()" 
-      [class.active]="activeButton === 'quit'">
-      Quit
-    </button>
   </div>
 </div>
