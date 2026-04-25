@@ -12,7 +12,30 @@ export class WebsocketService {
   public lastAiVersion: models.AiVersion | null = null;
 
   constructor() {
-    this.socket = io(environment.serverUrl);
+    this.socket = io(environment.serverUrl, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000
+    });
+
+    this.socket.on('connect', () => {
+      console.log('Socket connected with ID:', this.socket.id);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('Socket disconnected. Reason:', reason);
+    });
+  }
+
+  public isConnected(): boolean {
+    return this.socket.connected;
+  }
+
+  public connect(): void {
+    if (!this.socket.connected) {
+      console.log('Manually connecting socket...');
+      this.socket.connect();
+    }
   }
 
   listen<T>(eventName: models.ServerMessageType): Observable<T> {
@@ -25,8 +48,16 @@ export class WebsocketService {
 
   send(eventName: models.ClientMessageType, data: any): void {
     console.log("SOCKET EMIT EVENT:", eventName);
-    console.log("SOCKET EMIT DATA:", data);
-  
-    this.socket.emit(eventName, data);
+    
+    if (this.socket.connected) {
+      this.socket.emit(eventName, data);
+    } else {
+      console.log("Socket not connected, waiting for connection to send:", eventName);
+      this.socket.once('connect', () => {
+        console.log("Connected! Sending buffered message:", eventName);
+        this.socket.emit(eventName, data);
+      });
+      this.socket.connect();
+    }
   }
 }

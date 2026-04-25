@@ -52,46 +52,103 @@
         <filter id="redGlow" x="-40%" y="-40%" width="180%" height="180%">
           <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="rgba(255,80,80,0.7)"/>
         </filter>
+
+        <!-- Player Skins Patterns/Gradients -->
+        <pattern id="stripedPattern" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="5" height="10" fill="rgba(255,255,255,0.3)"/>
+        </pattern>
+
+        <linearGradient id="metallicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.4)"/>
+          <stop offset="50%" stop-color="rgba(255,255,255,0)" />
+          <stop offset="100%" stop-color="rgba(0,0,0,0.2)"/>
+        </linearGradient>
+
+        <filter id="neonGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+
+        <!-- Field Themes Gradients -->
+        <linearGradient id="nightGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#050a05"/>
+          <stop offset="100%" stop-color="#0a150a"/>
+        </linearGradient>
+
+        <linearGradient id="iceGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#e0f7fa"/>
+          <stop offset="100%" stop-color="#b2ebf2"/>
+        </linearGradient>
+
+        <linearGradient id="clayGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#d35400"/>
+          <stop offset="100%" stop-color="#a04000"/>
+        </linearGradient>
       </defs>
 
-      <!-- Base grass -->
-      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="url(#grassGrad)"/>
-      <!-- Stripe overlay -->
-      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="url(#stripes)"/>
+      <!-- Base field -->
+      <rect x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" 
+            [attr.fill]="currentFieldTheme === 'classic' ? 'url(#grassGrad)' : 
+                         currentFieldTheme === 'night' ? 'url(#nightGrad)' :
+                         currentFieldTheme === 'ice' ? 'url(#iceGrad)' : 'url(#clayGrad)'"/>
+      
+      <!-- Stripe overlay (only for classic/clay) -->
+      <rect *ngIf="currentFieldTheme === 'classic' || currentFieldTheme === 'clay'" x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="url(#stripes)"/>
+      <rect *ngIf="currentFieldTheme === 'night'" x="0" y="0" [attr.width]="config.fieldWidth" [attr.height]="config.fieldHeight" fill="rgba(0,255,0,0.02)"/>
 
       <!-- Boundary line -->
       <rect x="2" y="2" [attr.width]="config.fieldWidth - 4" [attr.height]="config.fieldHeight - 4"
-            fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+            fill="none" 
+            [attr.stroke]="currentFieldTheme === 'night' ? '#00d4ff' : currentFieldTheme === 'ice' ? '#4fc3f7' : 'rgba(255,255,255,0.7)'" 
+            [attr.stroke-width]="currentFieldTheme === 'night' ? 3 : 2"
+            [attr.filter]="currentFieldTheme === 'night' ? 'url(#neonGlow)' : null"/>
 
       <!-- Center line -->
       <line [attr.x1]="config.fieldWidth/2" y1="2"
             [attr.x2]="config.fieldWidth/2" [attr.y2]="config.fieldHeight - 2"
-            stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+            [attr.stroke]="currentFieldTheme === 'night' ? '#00d4ff' : currentFieldTheme === 'ice' ? '#ff5252' : 'rgba(255,255,255,0.7)'" 
+            [attr.stroke-width]="currentFieldTheme === 'night' ? 3 : 2"
+            [attr.filter]="currentFieldTheme === 'night' ? 'url(#neonGlow)' : null"/>
 
       <!-- Center circle -->
       <circle [attr.cx]="config.fieldWidth/2" [attr.cy]="config.fieldHeight/2"
-              r="100" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"/>
+              r="100" fill="none" 
+              [attr.stroke]="currentFieldTheme === 'night' ? '#00d4ff' : currentFieldTheme === 'ice' ? '#ff5252' : 'rgba(255,255,255,0.7)'" 
+              [attr.stroke-width]="currentFieldTheme === 'night' ? 3 : 2"
+              [attr.filter]="currentFieldTheme === 'night' ? 'url(#neonGlow)' : null"/>
       <!-- Center spot -->
       <circle [attr.cx]="config.fieldWidth/2" [attr.cy]="config.fieldHeight/2"
-              r="4" fill="rgba(255,255,255,0.7)"/>
+              r="4" [attr.fill]="currentFieldTheme === 'night' ? '#00d4ff' : currentFieldTheme === 'ice' ? '#ff5252' : 'rgba(255,255,255,0.7)'"/>
 
       <!-- Left penalty area -->
       <rect x="2" [attr.y]="config.fieldHeight/2 - 150" width="180" height="300"
-            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+            fill="none" 
+            [attr.stroke]="currentFieldTheme === 'night' ? 'rgba(0,212,255,0.4)' : currentFieldTheme === 'ice' ? 'rgba(79,195,247,0.4)' : 'rgba(255,255,255,0.5)'" 
+            [attr.stroke-width]="1.5"
+            [attr.filter]="currentFieldTheme === 'night' ? 'url(#neonGlow)' : null"/>
       <!-- Left goal area (small box) -->
       <rect x="2" [attr.y]="config.fieldHeight/2 - 80" width="70" height="160"
-            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+            fill="none" 
+            [attr.stroke]="currentFieldTheme === 'night' ? 'rgba(0,212,255,0.3)' : currentFieldTheme === 'ice' ? 'rgba(79,195,247,0.3)' : 'rgba(255,255,255,0.4)'" 
+            [attr.stroke-width]="1.5"/>
       <!-- Left penalty spot -->
-      <circle [attr.cx]="120" [attr.cy]="config.fieldHeight/2" r="3" fill="rgba(255,255,255,0.6)"/>
+      <circle [attr.cx]="120" [attr.cy]="config.fieldHeight/2" r="3" 
+              [attr.fill]="currentFieldTheme === 'night' ? '#00d4ff' : currentFieldTheme === 'ice' ? '#ff5252' : 'rgba(255,255,255,0.6)'"/>
 
       <!-- Right penalty area -->
       <rect [attr.x]="config.fieldWidth - 182" [attr.y]="config.fieldHeight/2 - 150" width="180" height="300"
-            fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+            fill="none" 
+            [attr.stroke]="currentFieldTheme === 'night' ? 'rgba(0,212,255,0.4)' : currentFieldTheme === 'ice' ? 'rgba(79,195,247,0.4)' : 'rgba(255,255,255,0.5)'" 
+            [attr.stroke-width]="1.5"
+            [attr.filter]="currentFieldTheme === 'night' ? 'url(#neonGlow)' : null"/>
       <!-- Right goal area (small box) -->
       <rect [attr.x]="config.fieldWidth - 72" [attr.y]="config.fieldHeight/2 - 80" width="70" height="160"
-            fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+            fill="none" 
+            [attr.stroke]="currentFieldTheme === 'night' ? 'rgba(0,212,255,0.3)' : currentFieldTheme === 'ice' ? 'rgba(79,195,247,0.3)' : 'rgba(255,255,255,0.4)'" 
+            [attr.stroke-width]="1.5"/>
       <!-- Right penalty spot -->
-      <circle [attr.cx]="config.fieldWidth - 120" [attr.cy]="config.fieldHeight/2" r="3" fill="rgba(255,255,255,0.6)"/>
+      <circle [attr.cx]="config.fieldWidth - 120" [attr.cy]="config.fieldHeight/2" r="3" 
+              [attr.fill]="currentFieldTheme === 'night' ? '#00d4ff' : currentFieldTheme === 'ice' ? '#ff5252' : 'rgba(255,255,255,0.6)'"/>
 
       <!-- Corner arcs -->
       <path [attr.d]="'M 2,2 A 30,30 0 0 1 32,2'"         fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
@@ -115,20 +172,42 @@
       <!-- Players -->
       @for (p of getAllCharacters(); track p.id) {
       <g>
+        <!-- Outer glow/shadow -->
         <circle
           [attr.cx]="p.x"
           [attr.cy]="p.y"
           [attr.r]="config.playerRadius + 2"
           [attr.fill]="p.team === 'red' ? 'rgba(255,40,40,0.25)' : 'rgba(40,100,255,0.25)'"
         />
+        
+        <!-- Main body -->
         <circle
           [attr.cx]="p.x"
           [attr.cy]="p.y"
           [attr.r]="config.playerRadius"
-          [attr.fill]="p.team === 'red' ? '#ff3333' : '#2255ee'"
-          [attr.filter]="p.team === 'red' ? 'url(#redGlow)' : 'url(#blueGlow)'"
-          stroke="rgba(255,255,255,0.85)"
-          stroke-width="2"
+          [attr.fill]="p.team === 'red' ? (currentSkin === 'neon' ? '#000' : '#ff3333') : (currentSkin === 'neon' ? '#000' : '#2255ee')"
+          [attr.filter]="currentSkin === 'neon' ? 'url(#neonGlow)' : (p.team === 'red' ? 'url(#redGlow)' : 'url(#blueGlow)')"
+          [attr.stroke]="currentSkin === 'neon' ? (p.team === 'red' ? '#ff4444' : '#00d4ff') : 'rgba(255,255,255,0.85)'"
+          [attr.stroke-width]="currentSkin === 'neon' ? 3 : 2"
+        />
+
+        <!-- Skin Layer (Stripes or Metallic) -->
+        <circle
+          *ngIf="currentSkin === 'striped'"
+          [attr.cx]="p.x"
+          [attr.cy]="p.y"
+          [attr.r]="config.playerRadius"
+          fill="url(#stripedPattern)"
+          pointer-events="none"
+        />
+        
+        <circle
+          *ngIf="currentSkin === 'metallic'"
+          [attr.cx]="p.x"
+          [attr.cy]="p.y"
+          [attr.r]="config.playerRadius"
+          fill="url(#metallicGrad)"
+          pointer-events="none"
         />
       </g>
       }
@@ -180,6 +259,16 @@
         <button class="btn-primary" (click)="restart()">PLAY AGAIN</button>
         <button class="btn-secondary" (click)="leaveRoom()">LOBBY</button>
       </div>
+    </div>
+  </div>
+  
+  <div *ngIf="showGoalAnimation" class="goal-animation-overlay" [class.blue-scored]="scoringTeam === 'blue'" [class.red-scored]="scoringTeam === 'red'">
+    <div class="goal-content">
+      <h1 class="goal-text">GOAL!</h1>
+      <div class="team-banner">{{ scoringTeam | uppercase }} SCORED</div>
+    </div>
+    <div class="confetti-container">
+      <div *ngFor="let i of [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]" class="confetti"></div>
     </div>
   </div>
 

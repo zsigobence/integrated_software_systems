@@ -15,6 +15,10 @@ export class GameService {
 
   private idStateSubject = new BehaviorSubject<models.IdMessage>({ playerId: null, roomId: null });
   public idState$ = this.idStateSubject.asObservable();
+  
+  get roomStateSubjectValue(): models.Room | null {
+    return this.roomStateSubject.value;
+  }
 
   private configStateSubject= new BehaviorSubject<models.GameConfigMessage| null>(null);
   public configState$ = this.configStateSubject.asObservable();
@@ -31,6 +35,8 @@ export class GameService {
 
   constructor(private websocketService: WebsocketService) {
     this.websocketService.listen<models.Room>(models.ServerMessageType.ReceiveRoom).subscribe((room) => {
+      console.log('Received room update:', room);
+      
       if (this.isRestarting && room?.isStarted) {
         return;
       }
@@ -40,6 +46,7 @@ export class GameService {
       }
 
       if (this.isleavingRoom){
+        console.log('Ignoring room update because isleavingRoom is true');
         this.roomStateSubject.next(null);
         this.isleavingRoom = false;
       } else{
@@ -73,6 +80,8 @@ export class GameService {
   }
 
   public createRoom(username: string): void {
+    console.log('Creating room for:', username);
+    this.websocketService.connect(); // Biztosítsuk a kapcsolatot
     this.isleavingRoom = false;
     this.isRestarting = false;
     this.websocketService.send(models.ClientMessageType.CreateRoom, username);
@@ -85,13 +94,22 @@ export class GameService {
     this.websocketService.send(models.ClientMessageType.JoinRoom, payload);
   }
 
-  public leaveRoom(): void {
-    this.websocketService.send(models.ClientMessageType.LeaveRoom, null);
-    this.isRestarting = false;
-    this.isleavingRoom = true;
+  public clearLocalState(): void {
     this.roomStateSubject.next(null);
     this.idStateSubject.next({ playerId: null, roomId: null });
     this.configStateSubject.next(null);
+    this.gameOverStateSubject.next(null);
+    this.errorStateSubject.next(null);
+    this.collisionStateSubject.next(null);
+    this.isleavingRoom = false;
+    this.isRestarting = false;
+  }
+
+  public leaveRoom(): void {
+    console.log('Leaving room...');
+    this.websocketService.send(models.ClientMessageType.LeaveRoom, null);
+    this.clearLocalState();
+    this.isleavingRoom = true; // Jelezzük, hogy várunk egy esetleges utolsó frissítésre (bár a szerver lekapcsol)
   }
 
   public getId(): void {

@@ -1,6 +1,8 @@
 import { Component, OnDestroy, OnInit, HostListener, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GameService } from '../../services/game.service';
+import { AudioService } from '../../services/audio.service';
+import { ThemeService, PlayerSkin, FieldTheme } from '../../services/theme.service';
 import * as models from '../../models/robosoccer.models';
 import { Subscription } from 'rxjs';
 import { Router } from '@angular/router';
@@ -20,18 +22,31 @@ export class Field implements OnInit, OnDestroy {
   public TeamType = models.TeamType;
   public leftGoalColor = '#4444ff';
   public rightGoalColor = '#ff4444';
+  public showGoalAnimation = false;
+  public scoringTeam: 'blue' | 'red' | null = null;
+  public currentSkin: PlayerSkin = 'classic';
+  public currentFieldTheme: FieldTheme = 'classic';
 
+  private previousRoomStarted = false;
+  private previousScore: { blue: number; red: number } = { blue: 0, red: 0 };
   private roomSubscription: Subscription | undefined;
   private configSubscription: Subscription | undefined;
   private idSubscription: Subscription | undefined;
   private gameOverSubscription: Subscription | undefined;
   private collisionSubscription: Subscription | undefined;
+  private themeSubscription: Subscription | undefined;
   private acceleration = { x: 0, y: 0 };
   private keysPressed: { [key: string]: boolean } = {};
   private readonly ACCELERATION_STEP = 10;
   private movementIntervalId: number | null = null;
 
-  constructor(private gameService: GameService, private cdr: ChangeDetectorRef, private router: Router) {}
+  constructor(
+    private gameService: GameService, 
+    private cdr: ChangeDetectorRef, 
+    private router: Router,
+    private audioService: AudioService,
+    private themeService: ThemeService
+  ) {}
 
   ngOnInit() {
     this.roomSubscription = this.gameService.roomState$.subscribe((room) => {
@@ -39,6 +54,35 @@ export class Field implements OnInit, OnDestroy {
       if (room && !room.isStarted && !this.winner) {
           this.router.navigate(['/lobby']);
       }
+      // Game start hang lejátszása
+      if (room && room.isStarted && !this.previousRoomStarted) {
+        this.audioService.play('gameStart');
+        this.previousScore = { 
+          blue: room.score[models.TeamType.Blue] || 0, 
+          red: room.score[models.TeamType.Red] || 0 
+        };
+      }
+      // Gól hang és animáció ellenőrzése
+      if (room && room.isStarted) {
+        const currentBlue = room.score[models.TeamType.Blue] || 0;
+        const currentRed = room.score[models.TeamType.Red] || 0;
+        
+        if (currentBlue > this.previousScore.blue || currentRed > this.previousScore.red) {
+          this.audioService.play('goal');
+          
+          // Animáció indítása
+          this.scoringTeam = currentBlue > this.previousScore.blue ? 'blue' : 'red';
+          this.showGoalAnimation = true;
+          
+          setTimeout(() => {
+            this.showGoalAnimation = false;
+            this.cdr.detectChanges();
+          }, 3000);
+        }
+        
+        this.previousScore = { blue: currentBlue, red: currentRed };
+      }
+      this.previousRoomStarted = room?.isStarted ?? false;
       this.cdr.detectChanges();
     });
 
@@ -54,19 +98,28 @@ export class Field implements OnInit, OnDestroy {
 
     this.gameOverSubscription = this.gameService.gameOverState$.subscribe((winner) => {
       this.winner = winner;
+      if (winner) {
+        this.audioService.play('gameOver');
+      }
       this.cdr.detectChanges();
     });
 
     this.collisionSubscription = this.gameService.collisionState$.subscribe((collision) => {
       if (collision) {
         console.log('Collision detected:', collision);
-        // Here you could add logic to show a visual effect for the collision
+        this.audioService.play('collision');
       }
     });
 
     if (this.playerId === null) {
       this.gameService.getId();
     }
+
+    this.themeSubscription = this.themeService.themes$.subscribe(themes => {
+      this.currentSkin = themes.playerSkin;
+      this.currentFieldTheme = themes.fieldTheme;
+      this.cdr.detectChanges();
+    });
   }
 
   ngOnDestroy(): void {
@@ -75,6 +128,7 @@ export class Field implements OnInit, OnDestroy {
     if (this.idSubscription) this.idSubscription.unsubscribe();
     if (this.gameOverSubscription) this.gameOverSubscription.unsubscribe();
     if (this.collisionSubscription) this.collisionSubscription.unsubscribe();
+    if (this.themeSubscription) this.themeSubscription.unsubscribe();
     if (this.movementIntervalId !== null) clearInterval(this.movementIntervalId);
   }
 

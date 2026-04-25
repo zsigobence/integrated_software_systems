@@ -1,0 +1,144 @@
+<div class="settings-container">
+  <h1>Beállítások</h1>
+  
+  <div class="settings-section">
+    <h2>Hang beállítások</h2>
+    
+    <div class="setting-item">
+      <label for="soundEnabled">Hang effektek</label>
+      <label class="toggle-container">
+        <input 
+          type="checkbox" 
+          id="soundEnabled" 
+          [(ngModel)]="soundEnabled"
+          (change)="onSoundEnabledChange()"
+        >
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    
+    <div class="setting-item" [class.disabled]="!soundEnabled">
+      <label for="soundVolume">Hangerő: {{ (soundVolume * 100) | number:'1.0-0' }}%</label>
+      <input 
+        type="range" 
+        id="soundVolume" 
+        min="0" 
+        max="1" 
+        step="0.1"
+        [(ngModel)]="soundVolume"
+        (input)="onSoundVolumeChange()"
+        [disabled]="!soundEnabled"
+      >
+    </div>
+    
+    <button class="test-button" (click)="testSound()" [disabled]="!soundEnabled">
+      Hang tesztelése
+    </button>
+  </div>
+  
+  <div class="settings-section">
+    <h2>Billentyűzet</h2>
+    <div class="keybindings-info">
+      <div class="key-item">
+        <span class="key">W</span>
+        <span>Felfelé</span>
+      </div>
+      <div class="key-item">
+        <span class="key">A</span>
+        <span>Balra</span>
+      </div>
+      <div class="key-item">
+        <span class="key">S</span>
+        <span>Lefelé</span>
+      </div>
+      <div class="key-item">
+        <span class="key">D</span>
+        <span>Jobbra</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="settings-section">
+    <h2>Pálya Témák</h2>
+    <div class="skin-selector">
+      <div 
+        class="skin-option" 
+        [class.active]="selectedField === 'classic'"
+        (click)="onFieldChange('classic')"
+      >
+        <div class="skin-preview field-classic"></div>
+        <span>Klasszikus</span>
+      </div>
+      <div 
+        class="skin-option" 
+        [class.active]="selectedField === 'night'"
+        (click)="onFieldChange('night')"
+      >
+        <div class="skin-preview field-night"></div>
+        <span>Neon Night</span>
+      </div>
+      <div 
+        class="skin-option" 
+        [class.active]="selectedField === 'ice'"
+        (click)="onFieldChange('ice')"
+      >
+        <div class="skin-preview field-ice"></div>
+        <span>Jégpálya</span>
+      </div>
+      <div 
+        class="skin-option" 
+        [class.active]="selectedField === 'clay'"
+        (click)="onFieldChange('clay')"
+      >
+        <div class="skin-preview field-clay"></div>
+        <span>Salakos</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>Játékos Skin-ek</h2>
+    <div class="skin-selector">
+      <div 
+        class="skin-option" 
+        [class.active]="selectedSkin === 'classic'"
+        (click)="onSkinChange('classic')"
+      >
+        <div class="skin-preview classic"></div>
+        <span>Klasszikus</span>
+      </div>
+      <div 
+        class="skin-option" 
+        [class.active]="selectedSkin === 'neon'"
+        (click)="onSkinChange('neon')"
+      >
+        <div class="skin-preview neon"></div>
+        <span>Neon</span>
+      </div>
+      <div 
+        class="skin-option" 
+        [class.active]="selectedSkin === 'striped'"
+        (click)="onSkinChange('striped')"
+      >
+        <div class="skin-preview striped"></div>
+        <span>Csíkos</span>
+      </div>
+      <div 
+        class="skin-option" 
+        [class.active]="selectedSkin === 'metallic'"
+        (click)="onSkinChange('metallic')"
+      >
+        <div class="skin-preview metallic"></div>
+        <span>Metál</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>verzió: 1.0.0</h2>
+  </div>
+  
+  <button class="back-button" (click)="back()">
+    Vissza
+  </button>
+</div>

@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { GameService } from '../../services/game.service';
 import { AiBotManagerService } from '../../services/ai-bot.service';
+import { AudioService } from '../../services/audio.service';
 import * as models from '../../models/robosoccer.models';
 import { TeamType, AiVersion } from '../../models/robosoccer.models';
 
@@ -28,7 +29,8 @@ export class LobbyComponent implements OnInit, OnDestroy {
     private router: Router, 
     private gameService: GameService, 
     public aiBotManager: AiBotManagerService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private audioService: AudioService
   ) {}
 
   ngOnInit(): void {
@@ -69,6 +71,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   joinTeam(team: models.TeamType): void {
     if (this.playerId !== null) {
       this.gameService.pickTeam(this.playerId, team);
+      this.audioService.play('click');
     }
   }
 
@@ -76,11 +79,13 @@ export class LobbyComponent implements OnInit, OnDestroy {
   addBot(team: TeamType, aiVersion: AiVersion = AiVersion.Default): void {
     if (this.room) {
       this.aiBotManager.addBot(this.room.roomId, team, aiVersion);
+      this.audioService.play('click');
     }
   }
 
   removeBot(playerId: number): void {
     this.aiBotManager.removeBot(playerId);
+    this.audioService.play('click');
   }
 
   getBotAiVersion(playerId: number): AiVersion {

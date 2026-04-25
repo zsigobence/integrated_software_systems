@@ -247,3 +247,102 @@
   from { transform: scale(0.85); opacity: 0; }
   to   { transform: scale(1);    opacity: 1; }
 }
+
+/* ── Goal Animation Overlay ────────────────────────────── */
+.goal-animation-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  animation: fadeInOut 3s forwards;
+
+  &.blue-scored {
+    background: radial-gradient(circle, rgba(68, 136, 255, 0.2) 0%, transparent 70%);
+    .goal-text { color: #6699ff; text-shadow: 0 0 50px rgba(68, 136, 255, 0.8), 0 0 100px rgba(68, 136, 255, 0.4); }
+    .team-banner { background: rgba(68, 136, 255, 0.2); border: 1px solid rgba(68, 136, 255, 0.4); color: #6699ff; }
+    .confetti { background-color: #4488ff; }
+  }
+
+  &.red-scored {
+    background: radial-gradient(circle, rgba(255, 68, 68, 0.2) 0%, transparent 70%);
+    .goal-text { color: #ff6666; text-shadow: 0 0 50px rgba(255, 68, 68, 0.8), 0 0 100px rgba(255, 68, 68, 0.4); }
+    .team-banner { background: rgba(255, 68, 68, 0.2); border: 1px solid rgba(255, 68, 68, 0.4); color: #ff6666; }
+    .confetti { background-color: #ff4444; }
+  }
+}
+
+.goal-content {
+  text-align: center;
+  animation: goalZoom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.goal-text {
+  font-size: 8rem;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: 15px;
+  text-transform: uppercase;
+  font-style: italic;
+}
+
+.team-banner {
+  margin-top: -10px;
+  padding: 8px 30px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  border-radius: 50px;
+  backdrop-filter: blur(5px);
+  animation: slideUp 0.5s 0.2s both;
+}
+
+/* Confetti */
+.confetti-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  top: -10px;
+  width: 10px;
+  height: 10px;
+  opacity: 0.8;
+  border-radius: 2px;
+  
+  @for $i from 1 through 20 {
+    &:nth-child(#{$i}) {
+      left: random(100) * 1%;
+      animation: confettiFall #{random(2) + 1}s linear forwards;
+      animation-delay: #{random(10) * 0.1}s;
+      transform: rotate(random(360) * 1deg);
+    }
+  }
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes goalZoom {
+  0% { transform: scale(0.5) rotate(-5deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { transform: translateY(50px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
