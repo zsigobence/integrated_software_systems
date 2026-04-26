@@ -1,5 +1,5 @@
 {
-  "name": "Final1 v3 (Perfect+ Anti-Rival)",
+  "name": "Final1 v5 (Anti-Rival: Sweeper + Flank Exploit)",
   "Kp": 0.35,
   "Kd": 0.45,
   "roles": {
@@ -11,6 +11,10 @@
       {
         "x": "by + bvy * 8 >= 500 ? Math.max(10, 50 - (by + bvy * 8 - 500) * 0.4) : 50",
         "y": "by + bvy * 8 >= 500 ? Math.max(505, Math.min(600, by > 600 ? by + bvy * 8 : by)) : 555"
+      },
+      {
+        "x": "normBx < fieldWidth / 2 ? 0 : Math.min(normBx - 300, fieldWidth - 400)",
+        "y": "Math.max(55, Math.min(fieldHeight - 55, by))"
       }
     ],
     "dynamic": {
@@ -19,17 +23,15 @@
         {
           "condition": "normBx > fieldWidth - 120 && by < 120",
           "targets": [
-            { "x": "fieldWidth - 300", "y": "250" },
-            { "x": "fieldWidth - 600", "y": "300" },
-            { "x": "fieldWidth - 600", "y": "600" }
+            { "x": "Math.min(fieldWidth - 55, normBx - 30)", "y": "Math.max(55, by + 30)" },
+            { "x": "fieldWidth - 110", "y": "230" }
           ]
         },
         {
           "condition": "normBx > fieldWidth - 120 && by > fieldHeight - 120",
           "targets": [
-            { "x": "fieldWidth - 300", "y": "fieldHeight - 250" },
-            { "x": "fieldWidth - 600", "y": "fieldHeight - 300" },
-            { "x": "fieldWidth - 600", "y": "fieldHeight - 600" }
+            { "x": "Math.min(fieldWidth - 55, normBx - 30)", "y": "Math.min(fieldHeight - 55, by - 30)" },
+            { "x": "fieldWidth - 110", "y": "fieldHeight - 230" }
           ]
         },
         {
@@ -40,40 +42,44 @@
           },
           "targets": [
             { "x": "Math.max(70, normBx - 120)", "y": "Math.max(150, Math.min(fieldHeight - 150, fieldHeight / 2 + cSide * 150))" },
-            { "x": "shX", "y": "fieldHeight / 2 + cSide * 80" },
-            { "x": "Math.max(70, shX - 50)", "y": "fieldHeight / 2" }
+            { "x": "shX", "y": "fieldHeight / 2" }
           ]
         },
         {
           "condition": "normBx <= fieldWidth / 2",
-          "vars": {
-            "pressX": "Math.max(100, normBx - 60)",
-            "coverX": "Math.min(normBx - 100, 420)"
-          },
           "targets": [
-            { "x": "pressX",  "y": "by" },
-            { "x": "coverX",  "y": "350" },
-            { "x": "coverX",  "y": "650" }
+            { "x": "Math.max(100, normBx - 60)", "y": "by" },
+            { "x": "Math.min(normBx - 100, 400)", "y": "by < fieldHeight / 2 ? 700 : 300" }
+          ]
+        },
+        {
+          "condition": "normBx > fieldWidth - 250",
+          "targets": [
+            { "x": "normBx - 45", "y": "by" },
+            { "x": "fieldWidth - 150", "y": "by < fieldHeight / 2 ? 190 : fieldHeight - 190" }
+          ]
+        },
+        {
+          "condition": "normBx > fieldWidth - 600",
+          "targets": [
+            { "x": "normBx - 45", "y": "by" },
+            { "x": "fieldWidth - 230", "y": "by < fieldHeight / 2 ? 190 : fieldHeight - 190" }
           ]
         },
         {
           "condition": "true",
           "vars": {
             "aimX": "fieldWidth",
-            "modBy": "by < 80 ? 120 : (by > fieldHeight - 80 ? fieldHeight - 120 : by)",
-            "aimY": "by < 80 ? (fieldHeight / 2) + 200 : (by > fieldHeight - 80 ? (fieldHeight / 2) - 200 : fieldHeight / 2)",
+            "aimY": "by < fieldHeight / 2 ? 190 : fieldHeight - 190",
             "dirX": "aimX - normBx",
-            "dirY": "aimY - modBy",
+            "dirY": "aimY - by",
             "normDist": "Math.hypot(dirX, dirY) || 1",
             "nX": "dirX / normDist",
-            "nY": "dirY / normDist",
-            "perpX": "-nY",
-            "perpY": "nX"
+            "nY": "dirY / normDist"
           },
           "targets": [
-            { "x": "normBx - nX * 45", "y": "modBy - nY * 45" },
-            { "x": "normBx - nX * 75 + perpX * 65", "y": "modBy - nY * 75 + perpY * 65" },
-            { "x": "normBx - nX * 75 - perpX * 65", "y": "modBy - nY * 75 - perpY * 65" }
+            { "x": "normBx - nX * 45", "y": "by - nY * 45" },
+            { "x": "Math.min(normBx + 300, fieldWidth - 200)", "y": "aimY" }
           ]
         }
       ]

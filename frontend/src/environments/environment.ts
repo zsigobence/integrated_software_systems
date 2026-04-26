@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  serverUrl: 'http://192.168.0.143:3000'
+  serverUrl: `http://${typeof window !== 'undefined' ? window.location.hostname : 'localhost'}:3000`
 };

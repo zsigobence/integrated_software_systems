@@ -341,20 +341,50 @@ export class AiBotManagerService implements OnDestroy {
           )[0];
           charTargets[rusher.id] = { x: ball.x, y: ball.y };
         } else if (aiVersion === AiVersion.Final1Strategy) {
-          // Ellen félpálya, Final1: visszahátráló + rohamozó mechanika
-          const rusher = dynamicChars[0];
-          const rusherNormX = direction === 1 ? rusher.x : config.fieldWidth - rusher.x;
-          const BACKUP_DIST = 180;
-          const backupNormX = Math.max(config.fieldWidth / 2 + 50, normBallX - BACKUP_DIST);
-          const backupActualX = direction === 1 ? backupNormX : config.fieldWidth - backupNormX;
-          const safeY = Math.max(150, Math.min(config.fieldHeight - 150, ball.y));
+          const cSide = ball.y < config.fieldHeight / 2 ? -1 : 1;
 
-          if (rusherNormX > normBallX - BACKUP_DIST + 40) {
-            // Még nincs elég messze hátul – hátrál a kapu felőli irányba
-            charTargets[rusher.id] = { x: backupActualX, y: safeY };
+          if (normBallX > config.fieldWidth - 250) {
+            // Ellenfél alapvonalánál ragadt – 3 szerep
+            if (dynamicChars.length > 0) {
+              // Faltoló: fal és labda közé, nagyon kicsit kapu felé
+              charTargets[dynamicChars[0].id] = {
+                x: Math.min(config.fieldWidth - 80, normBallX + 25),
+                y: cSide === -1 ? Math.max(80, ball.y - 45) : Math.min(config.fieldHeight - 80, ball.y + 45)
+              };
+            }
+            if (dynamicChars.length > 1) {
+              // Alapvonali: teljesen az alapvonalon, kapuszög felőli oldalról közelít
+              charTargets[dynamicChars[1].id] = {
+                x: config.fieldWidth - 65,
+                y: Math.max(80, Math.min(config.fieldHeight - 80,
+                    cSide === -1
+                      ? Math.min(ball.y + 90, config.fieldHeight / 2 - 40)
+                      : Math.max(ball.y - 90, config.fieldHeight / 2 + 40)
+                  ))
+              };
+            }
+            if (dynamicChars.length > 2) {
+              // Oszcilláló rohamozó: hátra-előre a kapu felé
+              const rusher = dynamicChars[2];
+              const rusherNormX = direction === 1 ? rusher.x : config.fieldWidth - rusher.x;
+              const BACKUP_DIST = 200;
+              const backupNormX = Math.max(config.fieldWidth / 2 + 50, normBallX - BACKUP_DIST);
+              const backupRawX = direction === 1 ? backupNormX : config.fieldWidth - backupNormX;
+              charTargets[rusher.id] = rusherNormX > normBallX - BACKUP_DIST + 40
+                ? { x: backupRawX, y: ball.y }
+                : { x: normBallX, y: ball.y };
+            }
           } else {
-            // Elég messze van – rohamoz a labda + kapu irányába
-            charTargets[rusher.id] = { x: ball.x, y: ball.y };
+            // Ellen félpálya, nem az alapvonalon – backup-rush
+            const rusher = dynamicChars[0];
+            const rusherNormX = direction === 1 ? rusher.x : config.fieldWidth - rusher.x;
+            const BACKUP_DIST = 180;
+            const backupNormX = Math.max(config.fieldWidth / 2 + 50, normBallX - BACKUP_DIST);
+            const backupRawX = direction === 1 ? backupNormX : config.fieldWidth - backupNormX;
+            const safeY = Math.max(150, Math.min(config.fieldHeight - 150, ball.y));
+            charTargets[rusher.id] = rusherNormX > normBallX - BACKUP_DIST + 40
+              ? { x: backupRawX, y: safeY }
+              : { x: normBallX, y: ball.y };
           }
         } else {
           // Többi stratégia: a labdához legközelebbi rohamoz
@@ -383,8 +413,8 @@ export class AiBotManagerService implements OnDestroy {
         let tY = target.y!;
         
         let finalX = direction === 1 ? tX : config.fieldWidth - tX;
-        finalX = Math.max(70, Math.min(config.fieldWidth - 70, finalX));
-        let finalY = Math.max(70, Math.min(config.fieldHeight - 70, tY));
+        finalX = Math.max(40, Math.min(config.fieldWidth - 40, finalX));
+        let finalY = Math.max(40, Math.min(config.fieldHeight - 40, tY));
 
         const rawAx = Kp * (finalX - char.x) - Kd * char.x_velocity;
         const rawAy = Kp * (finalY - char.y) - Kd * char.y_velocity;
