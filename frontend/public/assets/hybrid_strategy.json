@@ -4,12 +4,24 @@
   "Kd": 0.4,
   "roles": {
     "fixed": [
-      { "x": "50", "y": "445" },
-      { "x": "50", "y": "555" }
+      { "x": "by + bvy * 8 < 500 ? Math.max(10, 50 - (500 - by - bvy * 8) * 0.4) : 50", "y": "by + bvy * 8 < 500 ? Math.max(400, Math.min(495, by < 400 ? by + bvy * 8 : by)) : 445" },
+      { "x": "by + bvy * 8 >= 500 ? Math.max(10, 50 - (by + bvy * 8 - 500) * 0.4) : 50", "y": "by + bvy * 8 >= 500 ? Math.max(505, Math.min(600, by > 600 ? by + bvy * 8 : by)) : 555" }
     ],
     "dynamic": {
       "sortBy": "distance_to_ball",
       "phases": [
+        {
+          "condition": "normBx < 350 && (by < 250 || by > fieldHeight - 250)",
+          "vars": {
+            "cSide": "by < fieldHeight / 2 ? -1 : 1",
+            "shX": "Math.max(70, normBx / 2)"
+          },
+          "targets": [
+            { "x": "Math.max(70, normBx - 120)", "y": "Math.max(150, Math.min(fieldHeight - 150, fieldHeight / 2 + cSide * 150))" },
+            { "x": "shX", "y": "fieldHeight / 2 + cSide * 80" },
+            { "x": "Math.max(70, shX - 50)", "y": "fieldHeight / 2" }
+          ]
+        },
         {
           "condition": "true",
           "targets": [

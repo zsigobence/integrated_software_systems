@@ -60,6 +60,11 @@ export class LobbyComponent implements OnInit, OnDestroy {
     this.idSubscription?.unsubscribe();
   }
 
+  get isDevMode(): boolean {
+    const me = this.room?.players.find(p => p.id === this.playerId);
+    return me?.name.endsWith('_') ?? false;
+  }
+
   getTeam(team: models.TeamType): models.Player[] {
     return this.room ? this.room.players.filter(p => p.team === team) : [];
   }

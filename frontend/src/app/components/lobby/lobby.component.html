@@ -14,16 +14,24 @@
             <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
 
             <select
-              *ngIf="aiBotManager.isLocalBot(player.id)"
+              *ngIf="aiBotManager.isLocalBot(player.id) && isDevMode"
               class="bot-ai-select"
               (change)="onBotAiChange(player.id, $event)"
               [value]="getBotAiVersion(player.id)">
               <option [value]="AiVersion.Default">Normal AI</option>
               <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
               <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
-			  <option [value]="AiVersion.HybridStrategy">Hybrid</option>
+              <option [value]="AiVersion.HybridStrategy">Hybrid</option>
               <option [value]="AiVersion.HybridV2Strategy">Hybrid V2 (Roles)</option>
               <option [value]="AiVersion.HybridV3Strategy">Hybrid V3 (Predictive)</option>
+              <option [value]="AiVersion.Final1Strategy">Final1</option>
+            </select>
+            <select
+              *ngIf="aiBotManager.isLocalBot(player.id) && !isDevMode"
+              class="bot-ai-select"
+              (change)="onBotAiChange(player.id, $event)"
+              [value]="getBotAiVersion(player.id)">
+              <option [value]="AiVersion.Default">Normal AI</option>
             </select>
           </div>
           <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>
@@ -42,16 +50,24 @@
             <span class="badge" *ngIf="player.name.includes('AI_') && !aiBotManager.isLocalBot(player.id)">BOT</span>
 
             <select
-              *ngIf="aiBotManager.isLocalBot(player.id)"
+              *ngIf="aiBotManager.isLocalBot(player.id) && isDevMode"
               class="bot-ai-select"
               (change)="onBotAiChange(player.id, $event)"
               [value]="getBotAiVersion(player.id)">
               <option [value]="AiVersion.Default">Normal AI</option>
               <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
               <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
-			  <option [value]="AiVersion.HybridStrategy">Hybrid</option>
+              <option [value]="AiVersion.HybridStrategy">Hybrid</option>
               <option [value]="AiVersion.HybridV2Strategy">Hybrid V2 (Roles)</option>
               <option [value]="AiVersion.HybridV3Strategy">Hybrid V3 (Predictive)</option>
+              <option [value]="AiVersion.Final1Strategy">Final1</option>
+            </select>
+            <select
+              *ngIf="aiBotManager.isLocalBot(player.id) && !isDevMode"
+              class="bot-ai-select"
+              (change)="onBotAiChange(player.id, $event)"
+              [value]="getBotAiVersion(player.id)">
+              <option [value]="AiVersion.Default">Normal AI</option>
             </select>
           </div>
           <button class="btn-kick" *ngIf="aiBotManager.isLocalBot(player.id)" (click)="removeBot(player.id)">X</button>

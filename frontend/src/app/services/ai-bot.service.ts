@@ -28,6 +28,12 @@ export class AiBotManagerService implements OnDestroy {
   private readonly Kp = 0.3;
   private readonly Kd = 0.4;
   private readonly MAX_ACCEL = 10;
+
+  private lastBallPos: { x: number; y: number } = { x: -1, y: -1 };
+  private ballStuckSince: number = Date.now();
+  private isBallStuck: boolean = false;
+  private readonly STUCK_PX = 20;
+  private readonly STUCK_MS = 4000;
   
   private readonly RL_OPP_GOAL = [0, 500];   
   private readonly RL_OWN_GOAL = [2000, 500]; 
@@ -41,6 +47,7 @@ export class AiBotManagerService implements OnDestroy {
       this.loadAiJSON(AiVersion.HybridStrategy, '/assets/hybrid_strategy.json');
       this.loadAiJSON(AiVersion.HybridV2Strategy, '/assets/hybrid_strategy_v2.json');
       this.loadAiJSON(AiVersion.HybridV3Strategy, '/assets/hybrid_strategy_v3.json');
+      this.loadAiJSON(AiVersion.Final1Strategy, '/assets/final1_strategy.json');
       this.loadRLBrain('/assets/ai_brain.json');
       this.startAiLoop();
     }
@@ -129,7 +136,17 @@ export class AiBotManagerService implements OnDestroy {
   
       const room = this.currentRoom;
       const config = this.currentConfig;
-  
+
+      // Beszorulásgátló: ha a labda 10 másodpercig nem mozdult 20px-nél többet, stuck flag
+      const ball = room.ball;
+      if (Math.hypot(ball.x - this.lastBallPos.x, ball.y - this.lastBallPos.y) > this.STUCK_PX) {
+        this.lastBallPos = { x: ball.x, y: ball.y };
+        this.ballStuckSince = Date.now();
+        this.isBallStuck = false;
+      } else if (!this.isBallStuck && Date.now() - this.ballStuckSince >= this.STUCK_MS) {
+        this.isBallStuck = true;
+      }
+
       // 👉 Botonként gyűjtjük a koordinátákat
       const botCoordinatesMap = new Map<string, { x: number; y: number }[]>();
   
@@ -310,6 +327,38 @@ export class AiBotManagerService implements OnDestroy {
               ay: target.ay ? evaluate(target.ay, phaseContext) : undefined
             };
           }
+        }
+      }
+
+      // Ha a labda el van akadva
+      if (this.isBallStuck && dynamicChars.length > 0) {
+        const normBallX = direction === 1 ? ball.x : config.fieldWidth - ball.x;
+        if (normBallX <= config.fieldWidth / 2) {
+          // Saját térfél: az alapvonalhoz legközelebbi csatár rohamoz
+          const ownGoalX = direction === 1 ? 0 : config.fieldWidth;
+          const rusher = [...dynamicChars].sort((a, b) =>
+            Math.abs(a.x - ownGoalX) - Math.abs(b.x - ownGoalX)
+          )[0];
+          charTargets[rusher.id] = { x: ball.x, y: ball.y };
+        } else if (aiVersion === AiVersion.Final1Strategy) {
+          // Ellen félpálya, Final1: visszahátráló + rohamozó mechanika
+          const rusher = dynamicChars[0];
+          const rusherNormX = direction === 1 ? rusher.x : config.fieldWidth - rusher.x;
+          const BACKUP_DIST = 180;
+          const backupNormX = Math.max(config.fieldWidth / 2 + 50, normBallX - BACKUP_DIST);
+          const backupActualX = direction === 1 ? backupNormX : config.fieldWidth - backupNormX;
+          const safeY = Math.max(150, Math.min(config.fieldHeight - 150, ball.y));
+
+          if (rusherNormX > normBallX - BACKUP_DIST + 40) {
+            // Még nincs elég messze hátul – hátrál a kapu felőli irányba
+            charTargets[rusher.id] = { x: backupActualX, y: safeY };
+          } else {
+            // Elég messze van – rohamoz a labda + kapu irányába
+            charTargets[rusher.id] = { x: ball.x, y: ball.y };
+          }
+        } else {
+          // Többi stratégia: a labdához legközelebbi rohamoz
+          charTargets[dynamicChars[0].id] = { x: ball.x, y: ball.y };
         }
       }
 

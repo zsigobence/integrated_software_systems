@@ -1,11 +1,17 @@
 {
-  "name": "Perfect Strategy JSON Engine",
-  "Kp": 0.3,
-  "Kd": 0.4,
+  "name": "Final1 v3 (Perfect+ Anti-Rival)",
+  "Kp": 0.35,
+  "Kd": 0.45,
   "roles": {
     "fixed": [
-      { "x": "by + bvy * 8 < 500 ? Math.max(10, 50 - (500 - by - bvy * 8) * 0.4) : 50", "y": "by + bvy * 8 < 500 ? Math.max(400, Math.min(495, by < 400 ? by + bvy * 8 : by)) : 445" },
-      { "x": "by + bvy * 8 >= 500 ? Math.max(10, 50 - (by + bvy * 8 - 500) * 0.4) : 50", "y": "by + bvy * 8 >= 500 ? Math.max(505, Math.min(600, by > 600 ? by + bvy * 8 : by)) : 555" }
+      {
+        "x": "by + bvy * 8 < 500 ? Math.max(10, 50 - (500 - by - bvy * 8) * 0.4) : 50",
+        "y": "by + bvy * 8 < 500 ? Math.max(400, Math.min(495, by < 400 ? by + bvy * 8 : by)) : 445"
+      },
+      {
+        "x": "by + bvy * 8 >= 500 ? Math.max(10, 50 - (by + bvy * 8 - 500) * 0.4) : 50",
+        "y": "by + bvy * 8 >= 500 ? Math.max(505, Math.min(600, by > 600 ? by + bvy * 8 : by)) : 555"
+      }
     ],
     "dynamic": {
       "sortBy": "distance_to_ball",
@@ -39,22 +45,15 @@
           ]
         },
         {
-          "condition": "normBx < 600",
+          "condition": "normBx <= fieldWidth / 2",
           "vars": {
-            "dirX": "normBx - 50",
-            "dirY": "by - (fieldHeight / 2)",
-            "normDist": "Math.hypot(dirX, dirY) || 1",
-            "nX": "dirX / normDist",
-            "nY": "dirY / normDist",
-            "perpX": "-nY",
-            "perpY": "nX",
-            "baseX": "50 + nX * 200",
-            "baseY": "(fieldHeight / 2) + nY * 200"
+            "pressX": "Math.max(100, normBx - 60)",
+            "coverX": "Math.min(normBx - 100, 420)"
           },
           "targets": [
-            { "x": "normBx - 40", "y": "by" },
-            { "x": "baseX + perpX * 80", "y": "baseY + perpY * 80" },
-            { "x": "baseX - perpX * 80", "y": "baseY - perpY * 80" }
+            { "x": "pressX",  "y": "by" },
+            { "x": "coverX",  "y": "350" },
+            { "x": "coverX",  "y": "650" }
           ]
         },
         {
