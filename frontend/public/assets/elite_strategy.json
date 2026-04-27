@@ -1,0 +1,37 @@
+{
+  "name": "Elite Strategy v4 (Tactical Dominance)",
+  "Kp": 0.5,
+  "Kd": 0.5,
+  "roles": {
+    "fixed": [
+      {
+        "name": "Elite Goalie",
+        "x": "Math.max(15, 60 + (normBx < 500 ? (500 - normBx) * 0.1 : 0))",
+        "y": "Math.max(400, Math.min(600, by + bvy * 3))"
+      },
+      {
+        "name": "Anchor Defender",
+        "x": "Math.max(250, Math.min(800, normBx - 500))",
+        "y": "Math.max(200, Math.min(800, by))"
+      },
+      {
+        "name": "Wing Back",
+        "x": "Math.max(400, Math.min(1000, normBx - 300))",
+        "y": "by < 500 ? 150 : 850"
+      }
+    ],
+    "dynamic": {
+      "sortBy": "distance_to_ball",
+      "phases": [
+        {
+          "name": "Attack Phase",
+          "condition": "true",
+          "targets": [
+            { "name": "Chaser", "x": "normBx", "y": "by" },
+            { "name": "Flanker", "x": "Math.max(1000, Math.min(fieldWidth - 100, normBx + 150))", "y": "by < 500 ? 800 : 200" }
+          ]
+        }
+      ]
+    }
+  }
+}

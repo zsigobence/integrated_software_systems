@@ -83,7 +83,9 @@ export enum AiVersion {
   HybridStrategy = 'hybrid',
   HybridV2Strategy = 'hybridv2',
   HybridV3Strategy = 'hybridv3',
-  Final1Strategy = 'final1'
+  Final1Strategy = 'final1',
+  Elite = 'elite',
+  GodTier = 'godtier'
 }
 
 export enum ServerMessageType {
