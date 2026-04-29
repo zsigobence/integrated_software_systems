@@ -80,9 +80,6 @@ export enum AiVersion {
   Default = 'default',
   Brain5v5 = 'brain5v5',
   PerfectStrategy = 'perfect',
-  HybridStrategy = 'hybrid',
-  HybridV2Strategy = 'hybridv2',
-  HybridV3Strategy = 'hybridv3',
   Final1Strategy = 'final1',
   Elite = 'elite',
   GodTier = 'godtier'
