@@ -20,19 +20,12 @@ export class AiBotManagerService implements OnDestroy {
   private serverBotAis: { [playerId: number]: AiVersion } = {};
   private currentRoom: Room | null = null;
   private currentConfig: GameConfigMessage | null = null;
-  private loopInterval: any;
-  private rescueState: { [playerId: number]: { 
+  private rescueState: { [playerId: number]: {
     phase: 'NONE' | 'PREPARE' | 'STRIKE', 
     startTime: number, 
     kickerId: number | null,
     wallEnterTime: number 
   } } = {};
-  private godState: { [playerId: number]: {
-    lastKickTime: number,
-    targetCorner: number, // 1 or -1
-    interceptT: number
-  } } = {};
-
   private aiStrategies: { [key: string]: any } = {};
 
   private readonly Kp = 0.3;
@@ -56,7 +49,6 @@ export class AiBotManagerService implements OnDestroy {
       this.loadAiJSON(AiVersion.PerfectStrategy, '/assets/play_perfect_strategy.json');
       this.loadAiJSON(AiVersion.Final1Strategy, '/assets/final1_strategy.json');
       this.loadAiJSON(AiVersion.Elite, '/assets/elite_strategy.json');
-      // A startAiLoop() hívást eltávolítjuk, mert átállunk reaktív módra
     }
   }
 
@@ -71,7 +63,6 @@ export class AiBotManagerService implements OnDestroy {
   }
 
   ngOnDestroy() {
-    if (this.loopInterval) clearInterval(this.loopInterval);
     this.clearBots();
   }
 
@@ -156,7 +147,7 @@ export class AiBotManagerService implements OnDestroy {
         player,
         room,
         config,
-        (charId, ax, ay) => {
+        (_charId, ax, ay) => {
           coords.push({ x: ax, y: ay });
         }
       );
@@ -179,7 +170,7 @@ export class AiBotManagerService implements OnDestroy {
             player,
             room,
             config,
-            (charId, ax, ay) => {
+            (_charId, ax, ay) => {
               coords.push({ x: ax, y: ay });
             }
           );
@@ -191,8 +182,6 @@ export class AiBotManagerService implements OnDestroy {
     }
   }
 
-  // A régi startAiLoop-ot törölhetjük
-  private startAiLoop() {}
 
   private processBotLogic(botTeam: TeamType, aiVersion: AiVersion, player: any, room: Room, config: GameConfigMessage, sendMovementFn: (charId: number, ax: number, ay: number) => void) {
     const ball = room.ball;
@@ -347,35 +336,29 @@ export class AiBotManagerService implements OnDestroy {
       }
 
       // 3. Végrehajtás: Minden karakter pontosan a saját parancsát kapja meg az ID-ja alapján
-      if (aiVersion === AiVersion.Elite || aiVersion === AiVersion.GodTier) {
+      if (aiVersion === AiVersion.Elite) {
         const ball = room.ball;
         const isRed = botTeam === TeamType.Red;
         const direction = isRed ? -1 : 1;
         const ownGoalX = isRed ? config.fieldWidth : 0;
         const enemyGoalX = isRed ? 0 : config.fieldWidth;
         const centerY = config.fieldHeight / 2;
-        const isGod = aiVersion === AiVersion.GodTier;
 
         // 0. STATE INITIALIZATION
         if (!this.rescueState[player.id]) {
           this.rescueState[player.id] = { phase: 'NONE', startTime: 0, kickerId: null, wallEnterTime: 0 };
         }
-        if (isGod && !this.godState[player.id]) {
-          this.godState[player.id] = { lastKickTime: 0, targetCorner: 1, interceptT: 0 };
-        }
 
         const rs = this.rescueState[player.id];
-        const gs = isGod ? this.godState[player.id] : null;
 
         // 1. RESCUE STATE HANDLING
-        const wallLimit = isGod ? 100 : 120;
-        const isNearXWall = ball.x < wallLimit || ball.x > config.fieldWidth - wallLimit;
-        const isNearYWall = ball.y < wallLimit || ball.y > config.fieldHeight - wallLimit;
+        const isNearXWall = ball.x < 120 || ball.x > config.fieldWidth - 120;
+        const isNearYWall = ball.y < 120 || ball.y > config.fieldHeight - 120;
         const isBallInCorner = isNearXWall && isNearYWall;
 
         if (isBallInCorner) {
           if (rs.wallEnterTime === 0) rs.wallEnterTime = Date.now();
-          if (Date.now() - rs.wallEnterTime > (isGod ? 800 : 1200) && rs.phase === 'NONE') {
+          if (Date.now() - rs.wallEnterTime > 1200 && rs.phase === 'NONE') {
             rs.phase = 'PREPARE';
             rs.startTime = Date.now();
             let bestDist = Infinity;
@@ -396,25 +379,9 @@ export class AiBotManagerService implements OnDestroy {
 
         if (rs.phase !== 'NONE') {
           const elapsed = Date.now() - rs.startTime;
-          if (elapsed < (isGod ? 500 : 800)) rs.phase = 'PREPARE';
-          else if (elapsed < (isGod ? 1000 : 1400)) rs.phase = 'STRIKE';
+          if (elapsed < 800) rs.phase = 'PREPARE';
+          else if (elapsed < 1400) rs.phase = 'STRIKE';
           else rs.startTime = Date.now();
-        }
-
-        // 1.1 ENEMY AWARENESS (GodTier only)
-        let enemyInCorner = false;
-        if (isGod && isBallInCorner) {
-          for (const p of room.players) {
-            if (p.team !== botTeam) {
-              for (const ec of p.characters) {
-                if (Math.hypot(ec.x - ball.x, ec.y - ball.y) < 150) {
-                  enemyInCorner = true;
-                  break;
-                }
-              }
-            }
-            if (enemyInCorner) break;
-          }
         }
 
         // 2. CHASER IDENTIFICATION
@@ -426,7 +393,7 @@ export class AiBotManagerService implements OnDestroy {
           const role = ['GK', 'DEF_L', 'DEF_R', 'ATT', 'SUP'][i % 5];
           let weight = (role === 'ATT' || role === 'SUP') ? 0.6 : 1.6;
           if (role === 'GK') weight = dist < 220 ? 0.35 : 12.0;
-          
+
           if (dist * weight < bestScore) {
             bestScore = dist * weight;
             chaserId = c.id;
@@ -446,7 +413,7 @@ export class AiBotManagerService implements OnDestroy {
                 const toCenterX = config.fieldWidth / 2 - ball.x;
                 const toCenterY = config.fieldHeight / 2 - ball.y;
                 const len = Math.hypot(toCenterX, toCenterY) || 1;
-                finalTarget = { x: ball.x + (toCenterX / len) * (isGod ? 170 : 160), y: ball.y + (toCenterY / len) * (isGod ? 170 : 160) };
+                finalTarget = { x: ball.x + (toCenterX / len) * 160, y: ball.y + (toCenterY / len) * 160 };
               } else {
                 finalTarget = { x: ball.x, y: ball.y };
               }
@@ -461,20 +428,12 @@ export class AiBotManagerService implements OnDestroy {
               }
             }
           } else if (isChaser) {
-            if (isGod && enemyInCorner && rs.phase === 'NONE') {
-              // TACTICAL PATIENCE: Don't rush into a trapped enemy. Block the exit instead.
-              const toCenterX = config.fieldWidth / 2 - ball.x;
-              const toCenterY = config.fieldHeight / 2 - ball.y;
-              const len = Math.hypot(toCenterX, toCenterY) || 1;
-              finalTarget = { x: ball.x + (toCenterX / len) * 280, y: ball.y + (toCenterY / len) * 280 };
-            } else {
-              finalTarget = isGod ? this.getGodKickTarget(room, config, direction, char, gs!) : this.getEliteKickTarget(room, config, direction, char);
-            }
+            finalTarget = this.getEliteKickTarget(room, config, direction, char);
           } else if (role === 'GK') {
             const distToBall = Math.hypot(char.x - ball.x, char.y - ball.y);
             const isBallDangerous = ball.y > config.goalMinY - 120 && ball.y < config.goalMaxY + 120;
             const isBallOwnHalf = isRed ? ball.x > config.fieldWidth * 0.6 : ball.x < config.fieldWidth * 0.4;
-            
+
             if (distToBall < 280 && isBallDangerous && isBallOwnHalf) {
               finalTarget = { x: ball.x, y: ball.y };
             } else {
@@ -487,27 +446,21 @@ export class AiBotManagerService implements OnDestroy {
             const isBallOnOurHalf = isRed ? ball.x > config.fieldWidth * 0.45 : ball.x < config.fieldWidth * 0.55;
             const distToBall = Math.hypot(char.x - ball.x, char.y - ball.y);
 
-            if (isBallOnOurHalf && distToBall < (isGod ? 400 : 350)) {
-               finalTarget = isGod ? this.getGodKickTarget(room, config, direction, char, gs!) : this.getEliteKickTarget(room, config, direction, char); 
+            if (isBallOnOurHalf && distToBall < 350) {
+              finalTarget = this.getEliteKickTarget(room, config, direction, char);
             } else {
-               const angle = side * 0.55;
-               const radius = isGod ? 550 : 450;
-               finalTarget = { 
-                 x: ownGoalX + direction * Math.cos(angle) * radius, 
-                 y: centerY + Math.sin(angle) * radius 
-               };
+              const angle = side * 0.55;
+              finalTarget = {
+                x: ownGoalX + direction * Math.cos(angle) * 450,
+                y: centerY + Math.sin(angle) * 450
+              };
             }
           } else {
             const side = role === 'ATT' ? -1 : 1;
-            const isAggressive = isGod && (isRed ? ball.x < config.fieldWidth * 0.4 : ball.x > config.fieldWidth * 0.6);
-            const attLineX = isAggressive ? (enemyGoalX - direction * 350) : (enemyGoalX - direction * 650);
-            finalTarget = { x: attLineX, y: ball.y + side * 180 };
+            finalTarget = { x: enemyGoalX - direction * 650, y: ball.y + side * 180 };
           }
 
-          const steering = isGod 
-            ? this.applyGodSteering(char, finalTarget, characters, isChaser || char.id === rs.kickerId)
-            : this.applyEliteSteering(char, finalTarget, characters, ball, aiVersion, isChaser || char.id === rs.kickerId);
-          
+          const steering = this.applyEliteSteering(char, finalTarget, characters, ball, isChaser || char.id === rs.kickerId);
           sendMovementFn(char.id, steering.ax, steering.ay);
         }
         return;
@@ -545,9 +498,6 @@ export class AiBotManagerService implements OnDestroy {
       return;
     }
 
-    // Default 5v5 és Basic AI...
-    const defendX = botTeam === TeamType.Blue ? 50 : config.fieldWidth - 50;
-
     const moveChar = (character: any, targetX: number, targetY: number) => {
       const rawAx = this.Kp * (targetX - character.x) - this.Kd * character.x_velocity;
       const rawAy = this.Kp * (targetY - character.y) - this.Kd * character.y_velocity;
@@ -555,15 +505,6 @@ export class AiBotManagerService implements OnDestroy {
       const ay = Math.max(-this.MAX_ACCEL, Math.min(this.MAX_ACCEL, rawAy));
       sendMovementFn(character.id, ax, ay);
     };
-
-    if (aiVersion === AiVersion.Brain5v5) {
-      if (characters[0]) moveChar(characters[0], defendX, config.fieldHeight / 2);
-      if (characters[1]) moveChar(characters[1], defendX + (direction * 150), ball.y - 100);
-      if (characters[2]) moveChar(characters[2], defendX + (direction * 150), ball.y + 100);
-      if (characters[3]) moveChar(characters[3], ball.x, ball.y);
-      if (characters[4]) moveChar(characters[4], ball.x + (direction * 100), config.fieldHeight / 2);
-      return;
-    }
 
     const centerX = config.fieldWidth / 2;
     const centerY = config.fieldHeight / 2;
@@ -663,7 +604,7 @@ export class AiBotManagerService implements OnDestroy {
     }
   }
 
-  private applyEliteSteering(char: any, target: { x: number, y: number }, teammates: any[], ball: any, aiVersion: AiVersion, isActive: boolean): { ax: number, ay: number } {
+  private applyEliteSteering(char: any, target: { x: number, y: number }, teammates: any[], _ball: any, isActive: boolean): { ax: number, ay: number } {
     const MAX_SPEED = 50;
     const MAX_ACCEL = 10;
     
@@ -703,133 +644,6 @@ export class AiBotManagerService implements OnDestroy {
     if (steerLen > MAX_ACCEL) {
       steerX = (steerX / steerLen) * MAX_ACCEL;
       steerY = (steerY / steerLen) * MAX_ACCEL;
-    }
-
-    return { ax: steerX, ay: steerY };
-  }
-
-  // =====================================================================
-  // GOD-TIER AI HELPER METHODS
-  // =====================================================================
-
-  private getGodKickTarget(room: Room, config: GameConfigMessage, direction: number, char: any, gs: any): { x: number, y: number } {
-    const ball = room.ball;
-    const MAX_SPEED = 50;
-    const FRICTION = 0.98;
-
-    // 1. ADVANCED INTERCEPTION
-    const bvx = ball.x_velocity || 0;
-    const bvy = ball.y_velocity || 0;
-    let bestT = 1;
-    let minD = Infinity;
-
-    for (let t = 1; t <= 50; t++) {
-      const mult = (1 - Math.pow(FRICTION, t)) / (1 - FRICTION);
-      const px = ball.x + bvx * mult;
-      const py = ball.y + bvy * mult;
-
-      const dBot = Math.hypot(px - char.x, py - char.y);
-      const dMax = MAX_SPEED * t;
-
-      if (dMax >= dBot + 30) {
-        bestT = t;
-        break;
-      }
-      if (dBot - dMax < minD) {
-        minD = dBot - dMax;
-        bestT = t;
-      }
-    }
-
-    const mult = (1 - Math.pow(FRICTION, bestT)) / (1 - FRICTION);
-    const predX = ball.x + bvx * mult;
-    const predY = ball.y + bvy * mult;
-
-    // 2. SNIPER LOGIC (Aim for corners)
-    const enemyGoalX = direction === 1 ? config.fieldWidth : 0;
-    
-    // Choose corner that is furthest from enemy goalkeeper
-    let enemyGK = room.players.find(p => (direction === 1 ? p.team === TeamType.Red : p.team === TeamType.Blue))?.characters[0];
-    if (enemyGK) {
-       gs.targetCorner = enemyGK.y > config.fieldHeight / 2 ? -1 : 1;
-    } else {
-       gs.targetCorner = ball.y > config.fieldHeight / 2 ? -1 : 1;
-    }
-
-    const targetY = config.fieldHeight / 2 + gs.targetCorner * (config.goalMaxY - config.goalMinY) * 0.45;
-
-    let shotDx = enemyGoalX - predX;
-    let shotDy = targetY - predY;
-    const shotDist = Math.hypot(shotDx, shotDy) || 1;
-    shotDx /= shotDist;
-    shotDy /= shotDist;
-
-    // 3. APPROACH & STRIKE with Wall-Awareness
-    const distToBall = Math.hypot(char.x - ball.x, char.y - ball.y);
-    if (distToBall < 100) {
-      // Powerful follow-through
-      return { x: predX + shotDx * 350, y: predY + shotDy * 350 };
-    } else {
-      // Precise approach
-      let appX = predX - shotDx * 98;
-      let appY = predY - shotDy * 98;
-
-      // Anti-Wall Logic: If ball is near wall, approach from the wall side
-      const wallLimit = 85;
-      if (predY < wallLimit) appY = Math.min(appY, predY - 40);
-      if (predY > config.fieldHeight - wallLimit) appY = Math.max(appY, predY + 40);
-      if (predX < wallLimit && direction === -1) appX = Math.min(appX, predX - 40);
-      if (predX > config.fieldWidth - wallLimit && direction === 1) appX = Math.max(appX, predX + 40);
-
-      // Final wall-clamping to prevent bots from going out of bounds
-      appX = Math.max(30, Math.min(config.fieldWidth - 30, appX));
-      appY = Math.max(30, Math.min(config.fieldHeight - 30, appY));
-
-      return { x: appX, y: appY };
-    }
-  }
-
-  private applyGodSteering(char: any, target: { x: number, y: number }, teammates: any[], isActive: boolean): { ax: number, ay: number } {
-    const MAX_SPEED = 50;
-    const MAX_ACCEL = 10;
-    
-    const dx = target.x - char.x;
-    const dy = target.y - char.y;
-    const dist = Math.hypot(dx, dy) || 1;
-
-    // 1. DESIRED VELOCITY with Anti-Overshoot
-    let speed = MAX_SPEED;
-    if (!isActive && dist < 180) {
-      speed = MAX_SPEED * (dist / 180);
-    }
-    
-    let dVx = (dx / dist) * speed;
-    let dVy = (dy / dist) * speed;
-
-    // 2. SMART SEPARATION
-    if (!isActive) {
-      for (const other of teammates) {
-        if (other.id === char.id) continue;
-        const ox = char.x - other.x;
-        const oy = char.y - other.y;
-        const d = Math.hypot(ox, oy);
-        if (d > 0 && d < 150) {
-          const push = Math.pow((150 - d) / 150, 1.5);
-          dVx += (ox / d) * MAX_SPEED * push * 3.0;
-          dVy += (oy / d) * MAX_SPEED * push * 3.0;
-        }
-      }
-    }
-
-    // 3. HIGH-GAIN MOMENTUM COMPENSATION
-    // We try to kill current velocity that is NOT in the desired direction
-    let steerX = (dVx - char.x_velocity) * 2.2;
-    let steerY = (dVy - char.y_velocity) * 2.2;
-
-    const sLen = Math.hypot(steerX, steerY) || 1;
-    if (sLen > MAX_ACCEL) {
-      steerX = (steerX / sLen) * MAX_ACCEL;
-      steerY = (steerY / sLen) * MAX_ACCEL;
     }
 
     return { ax: steerX, ay: steerY };

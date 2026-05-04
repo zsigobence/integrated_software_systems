@@ -16,11 +16,9 @@
             <select *ngIf="aiBotManager.isLocalBot(player.id) && isDevMode" class="bot-ai-select"
               (change)="onBotAiChange(player.id, $event)" [value]="getBotAiVersion(player.id)">
               <option [value]="AiVersion.Default">Normal AI</option>
-              <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
               <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
               <option [value]="AiVersion.Final1Strategy">Final1</option>
               <option [value]="AiVersion.Elite">Elite AI (Advanced Steering)</option>
-              <option [value]="AiVersion.GodTier">GOD-TIER AI (The Unbeatable)</option>
             </select>
             <select *ngIf="aiBotManager.isLocalBot(player.id) && !isDevMode" class="bot-ai-select"
               (change)="onBotAiChange(player.id, $event)" [value]="getBotAiVersion(player.id)">
@@ -45,11 +43,9 @@
             <select *ngIf="aiBotManager.isLocalBot(player.id) && isDevMode" class="bot-ai-select"
               (change)="onBotAiChange(player.id, $event)" [value]="getBotAiVersion(player.id)">
               <option [value]="AiVersion.Default">Normal AI</option>
-              <option [value]="AiVersion.Brain5v5">5v5 Brain</option>
               <option [value]="AiVersion.PerfectStrategy">Perfect AI</option>
               <option [value]="AiVersion.Final1Strategy">Final1</option>
               <option [value]="AiVersion.Elite">Elite AI (Advanced Steering)</option>
-              <option [value]="AiVersion.GodTier">GOD-TIER AI (The Unbeatable)</option>
             </select>
             <select *ngIf="aiBotManager.isLocalBot(player.id) && !isDevMode" class="bot-ai-select"
               (change)="onBotAiChange(player.id, $event)" [value]="getBotAiVersion(player.id)">
